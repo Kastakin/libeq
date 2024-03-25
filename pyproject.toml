@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "libeq"
+version = "0.1.0"
+description = ""
+authors = ["Lorenzo Castellino <castellino96@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "libeq", from = "src" }]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+numpy = "^1.26.4"
+pydantic = "^2.6.4"
+pydantic-numpy = "^4.2.0"
+
+[tool.poetry.group.dev.dependencies]
+matplotlib = "^3.8.3"
+pandas = "^2.2.1"
+pytest = "^8.1.1"
+ipykernel = "^6.29.3"
+pyinstrument = "^4.6.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

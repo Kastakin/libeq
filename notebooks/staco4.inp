@@ -1,0 +1,217 @@
+                              Input provvisorio 2000
+
+                   Rispetto ai vecchi files (XSTAC-98)
+                 - manca la seconda riga (indici per stampa)
+                 - si devono aggiungere i KEY di C,D,E (se ICD>0)
+                   subito dopo il KEY di raffinamento di beta
+                 - si devono dare sempre i valori delle cariche dei componenti
+                 - si devono sempre dare i valori di C0I, CTI, IREFT
+
+Input instructions for   STACO4  BASIC version 7.2           10 Oct 2000
+                         BSTAC4  BASIC version 7.2
+                         FSTACO4  FORTRAN version 2.1
+                         FBSTAC4  FORTRAN version 2.1
+
+  The program prints out:
+    Table 1. General titration data
+    Table 2. Intermediate calculations
+    Table 3. Refined parameters
+    Table 4. Correlation matrix
+    Table 5. Beta=f(I)
+    Table 6. Final table (general output informations)
+    Table 7. Percentages of species
+
+The program reads the following filenames:
+
+1') NFILE - Name of the input file (press ENTER for END of program)
+2') OFILE - Name of the output file
+3') OPFILE- Name of the output file (a new input file with refined parameters)
+
+_________________Input File______________________
+
+1) TITLE
+      TITLE: title of the job (one row)
+
+2) MAXIT,NC,NS,JW,ICD,WESP,SHLIM
+      MAXIT: maximum no. of refinement cycles
+      NC: no. of components
+      NS: no. of species
+      JW=1: weights=1 (unit weight for each experimental point)
+        =0: weights=1/SIGMA^2
+        =2: weights=1/SIGMA^2 (sigma given by the user)
+      ICD=0: if the constant medium method is used for all the titrations
+             (I=cost)
+             the ionic strength is calculated but log(beta) are not adjusted
+             (to be used for small I variations)
+         =1: if the ionic strength varies in some titrations or if different
+             titrations were performed at different ionic strengths
+         =2: as ICD=1, but C,D and E for E0 are given as input
+      WESP: weights=1/DV^wesp 
+            If WESP>0, calculations are performed two steps. The first is 
+            the normal one - according to the given input instructions -. 
+            The second step, the calculations are performed giving each point 
+            a new weight on the basis of the residual calculated in the first 
+            step: W=(dV)^WESP.
+      SHLIM: limit for shifts in BSTAC4 and FBSTAC4 (if SHLIM=0 no limit)
+             (not used in STACO4 and FSTACO4)
+
+3) (NC times)
+   COMP 
+        COMP: name of mass balance equation
+
+4) TEMP,PHI,PHF
+        TEMP: temperature in degrees cent.
+        PHI,PHF: pH range to be considered in the job
+                 (if PHI=PHF=0 all the points are considered)
+
+5) (only if ICD>0, i.e., variable ionic strength)
+   IREF,AT,BT,c0,c1,d0,d1,e0,e1,KCD(1...6)
+        IREF: reference ionic strength
+              (if IREF<0, then IB for each formation constant must be given,
+               see item 9)
+        AT,BT: A and B parameters of Debye-Huckel type equation
+               (if AT=BT=0 then program fixes AT=0.5, BT=1.5)
+        c0,c1,d0,d1,e0,e1: parameters for the ionic strength dependence of
+                           formation constants
+                      (if c0=c1=d0=d1=e0=e1=0 then
+                         c0=.11
+                         c1=.20 - .0006 * (TEMP-25)
+                         d0=0
+                         d1=-.075 + .0007 * (TEMP-25)
+                         e0=0
+                         e1=0)
+        KCD(1) = 0: c0 constant
+               = 1: c0 refined
+        KCD(2) = 0: c1 constant
+               = 1: c1 refined
+        KCD(3) = 0: d0 constant
+               = 1: d0 refined
+        KCD(4) = 0: d1 constant
+               = 1: d1 refined
+        KCD(5) = 0: e0 constant
+               = 1: e0 refined
+        KCD(6) = 0: e1 constant
+               = 1: e1 refined
+
+6) Z(1...NC)
+        Z: charge of components (charge may be not integer)
+
+7) (only if ICD=2)
+    CGE,DGE,EGE
+        CGE,DGE,EGE: empyrical parameters for proton activity coefficients
+                     in the debye-Huckel equation
+        [if ICD=1 then
+          CGE = .335 - .0023 * (TEMP-25)
+          DGE = -.109 + .0018 * (TEMP-25)
+          EGE = 0 ]
+
+if ICD>0 goto item 9
+
+8) (NS times)
+   BLOG,IX(NC times),KEY,NKA,IKA(NKA times)
+        BLOG: log(BETA)
+        IX: stoichiometric coefficients
+        KEY: index for refinement
+             KEY = 0: parameter BETA constant
+                 = 1: refines BETA
+                 =-1: species ignored in the model
+        NKA: no.of formation constants to be added to give
+             overall formation constants (*)
+        IKA: relative indexes (*)
+
+goto item 10
+
+9) (NS times)
+   BLOG,(IB),C,D,E,IX(1...NC),KEY,KEYC,KEYD,KEYE,NKA,IKA(1...NKA)
+        BLOG: log(BETA)
+        IB: reference ionic strenght (to be given only if IREF<0)
+        C,D,E: parameters of Debye-Huckel equation
+            (if C=D=E=0 then: 
+               C= c0 p* + c1 z*
+               D= d0 p* + d1 z*
+               E= e0 p* + e1 z* )
+        IX: stoichiometric coefficients
+        KEYX: index for refinement
+             KEY  = 0: parameter BETA constant
+                  = 1: refines BETA
+                  =-1: species ignored in the model
+             KEYC = 0: parameter C constant
+                  = 1:     "     C refined
+             KEYD = 0: parameter D constant
+                  = 1:     "     D refined
+             KEYE = 0: parameter E constant
+                  = 1:     "     E refined
+        NKA: no.of formation constants to be added to give
+             overall formation constants (*)
+        IKA: relative indexes (*)
+
+10) NAMET
+        NAMET: title of the titration (one row)
+               [if EOF end of job (goto 1')]
+
+11) JP,NCET
+        JP: percentages (Table 7) are calculated with respect to the
+            component JP
+        NCET: the e.m.f. (or pX=-log[X]) read in for the titration
+              refers to the component NCET
+
+12) (NC times)
+    CO,CTT,LOK 
+        CO: initial concentration in the titration vessel (mol/L)
+        CTT: concentration in the titrant (mol/L)
+        LOK = 0: CO constant
+            = 1: CO refined
+            > 1: constrained parameters (**)
+
+13) COI,CTI,IREFT
+        COI: concentration of ionic species which does not take part in
+             complexation reactions (reaction vessel)
+        CTI: idem in the titrant solution
+        IREFT: initial value of ionic strength (not used if ICD=0)
+               IREFT is used by the program:
+                     a) as initial guess of ionic strength
+                     b) as reference ionic strength for E0.
+
+14) VO,SIGMAV
+        VO: initial volume (cm^3)
+        SIGMAV: estimated standard deviation in the titrant volume
+
+15) E0,SIGMAE,JA,JB,SLOPE,LOK1,LOK2,LOK3,LOK4
+        E0: standard potential of the electrode in mV (E0=0 if reads pH)
+        SIGMAE: estimated standard deviation in e.m.f. (E0<>0) or pH (E0=0)
+        JA: linear coefficient of acid junction potential
+        JB: linear coefficient of basic junction potential
+        SLOPE: SLOPE
+               (if SLOPE=0 the program calculates SLOPE=Nernstian value)
+        LOK1 = 0: E0 constant
+             = 1: E0 refined
+        LOK2 = 0: JA constant
+             = 1: JA refined
+        LOK3 = 0: JB constant
+             = 1: JB refined
+        LOK4 = 0: SLOPE constant
+             = 1: SLOPE refined
+        
+16) V,E,(SIGMA),IND
+        V: titrant volume
+        E: potential (or pH, if EO=0)
+        (SIGMA): sigma for weight=1/sigma^2 (given only if JW=2)
+        IND = 0: normal
+            = 1: for the last point of the titration
+                 (if IND=1 goto item 10)
+
+----------------------------------------------------------------
+(*) To refine step formation constants.
+    Example:
+
+    (only overall formation constants)
+
+    log(BETA) st.coeff. KEY  NKA  IKA         log(BETA)  st.c.  KEY NKA IKA
+    -14.00     0 -1      0    0    0          -14.00     0 -1    0   0   0
+      4.5      1  1      1    0    0            4.5      1  1    1   0   0
+      7.0      1  2      1    0    0   step =>  2.5      1  2    1   1   2
+
+(**) STACO4, FSTACO4: the same parameters must be constrained
+                      for all the titrations
+     BSTAC4, FBSTAC4: one can constrain several groups of parameters
+
