@@ -1,0 +1,88 @@
+site_name: libeq
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.ico
+  features:
+    - navigation.tabs
+    - navigation.instant
+    - navigation.prune
+
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch pto light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default 
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+watch:
+  - docs/
+  - src/
+
+nav:
+  - Home: index.md
+  - Tutorials: 
+    - tutorials/index.md
+    - Titration Simulation: tutorials/titration_simulation/
+    - Species Distribution: tutorials/species_distribution/
+    - Legacy Import: tutorials/legacy_import/
+  - API Reference: reference/
+  - Explanation: explanation.md
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - footnotes
+  - admonition
+  - pymdownx.details
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+extra_javascript:
+  - javascripts/katex.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/contrib/auto-render.min.js
+
+extra_css:
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.css
+
+plugins:
+  - privacy
+  - glightbox
+  - search
+  - section-index
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - gen-files:
+     scripts:
+     - scripts/gen_doc_stubs.py
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            members_order: source
+            docstring_style: numpy
+            separate_signature: true
+            show_signature_annotations: true
+            filters: ["!^_"]
+            show_if_no_docstring: true

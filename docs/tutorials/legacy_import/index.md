@@ -1,0 +1,1 @@
+`libeq` has some utilities to load the data needed for its calculation from various legacy software for the study of thermodynamic equilibrium, notably [HYPERQUAD](HYPERQUAD_import.md) and [BSTAC](BSTAC_import.md).
