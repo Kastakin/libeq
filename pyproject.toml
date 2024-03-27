@@ -29,6 +29,7 @@ mkdocs-section-index = "^0.3.8"
 markdown-katex = "^202112.1034"
 black = "^24.3.0"
 mkdocs-glightbox = "^0.3.7"
+ruff = "^0.3.4"
 
 [build-system]
 requires = ["poetry-core"]
