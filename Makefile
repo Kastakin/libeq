@@ -13,6 +13,11 @@ install: .poetry .pre-commit
 	poetry install
 	pre-commit install --install-hooks
 
+.PHONY: update  ## Update all libraries and export the requirements
+update:
+	poetry update
+	poetry export -o requirements-docs.txt --only=docs --without-hashes
+
 .PHONY: lint  ## Lint python source files
 lint: .poetry
 	poetry run ruff check $(sources)
