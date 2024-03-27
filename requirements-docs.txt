@@ -1,3 +1,4 @@
+-e .
 babel==2.14.0 ; python_version >= "3.9" and python_version < "3.13"
 black==24.3.0 ; python_version >= "3.9" and python_version < "3.13"
 certifi==2024.2.2 ; python_version >= "3.9" and python_version < "3.13"

@@ -17,6 +17,8 @@ install: .poetry .pre-commit
 update:
 	poetry update
 	poetry export -o requirements-docs.txt --only=docs --without-hashes
+	echo "-e ." | cat - requirements-docs.txt > temp && mv temp requirements-docs.txt
+
 
 .PHONY: lint  ## Lint python source files
 lint: .poetry
