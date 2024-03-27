@@ -40,3 +40,7 @@ __pycache__/
 .cache/
 /site/
 /site.zip
+
+# Numpy debug files
+numpy-*.log
+*.npz
