@@ -21,15 +21,18 @@ pandas = "^2.2.1"
 pytest = "^8.1.1"
 ipykernel = "^6.29.3"
 pyinstrument = "^4.6.2"
+ruff = "^0.3.4"
+
+[tool.poetry.group.docs.dependencies]
 mkdocs-material = "^9.5.15"
-mkdocstrings = {extras = ["python"], version = "^0.24.1"}
+mkdocstrings = { extras = ["python"], version = "^0.24.1" }
 mkdocs-gen-files = "^0.5.0"
 mkdocs-literate-nav = "^0.6.1"
 mkdocs-section-index = "^0.3.8"
 markdown-katex = "^202112.1034"
-black = "^24.3.0"
 mkdocs-glightbox = "^0.3.7"
-ruff = "^0.3.4"
+black = "^24.3.0"
+
 
 [build-system]
 requires = ["poetry-core"]
