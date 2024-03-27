@@ -36,5 +36,7 @@ env/
 __pycache__/
 .pytest_cache/
 
-# Mkdocs cache
+# Mkdocs cache and results
 .cache/
+/site/
+/site.zip
