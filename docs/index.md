@@ -7,7 +7,7 @@ This site contains the project documentation for the
 It is the core routine of [PyES](https://www.github.com/Kastakin/PyES), a frontend for the calculation of species distribution and simulation of titration curves.
 
 1. [Tutorials](tutorials/index.md)
-2. [Reference](reference.md)
+2. [Reference](reference/libeq/index.md)
 3. [Explanation](explanation.md)
 
 ## Acknowledgements

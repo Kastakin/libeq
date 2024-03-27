@@ -17,7 +17,7 @@ theme:
 
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
-      scheme: default 
+      scheme: default
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
@@ -35,7 +35,7 @@ watch:
 
 nav:
   - Home: index.md
-  - Tutorials: 
+  - Tutorials:
     - tutorials/index.md
     - Titration Simulation: tutorials/titration_simulation/
     - Species Distribution: tutorials/species_distribution/
