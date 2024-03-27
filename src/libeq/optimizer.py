@@ -10,4 +10,3 @@ def PotOptimizer():
 
     # return the optimized parameters
     pass
-

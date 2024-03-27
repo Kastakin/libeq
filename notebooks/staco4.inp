@@ -46,17 +46,17 @@ _________________Input File______________________
          =1: if the ionic strength varies in some titrations or if different
              titrations were performed at different ionic strengths
          =2: as ICD=1, but C,D and E for E0 are given as input
-      WESP: weights=1/DV^wesp 
-            If WESP>0, calculations are performed two steps. The first is 
-            the normal one - according to the given input instructions -. 
-            The second step, the calculations are performed giving each point 
-            a new weight on the basis of the residual calculated in the first 
+      WESP: weights=1/DV^wesp
+            If WESP>0, calculations are performed two steps. The first is
+            the normal one - according to the given input instructions -.
+            The second step, the calculations are performed giving each point
+            a new weight on the basis of the residual calculated in the first
             step: W=(dV)^WESP.
       SHLIM: limit for shifts in BSTAC4 and FBSTAC4 (if SHLIM=0 no limit)
              (not used in STACO4 and FSTACO4)
 
 3) (NC times)
-   COMP 
+   COMP
         COMP: name of mass balance equation
 
 4) TEMP,PHI,PHF
@@ -126,7 +126,7 @@ goto item 10
         BLOG: log(BETA)
         IB: reference ionic strenght (to be given only if IREF<0)
         C,D,E: parameters of Debye-Huckel equation
-            (if C=D=E=0 then: 
+            (if C=D=E=0 then:
                C= c0 p* + c1 z*
                D= d0 p* + d1 z*
                E= e0 p* + e1 z* )
@@ -156,7 +156,7 @@ goto item 10
               refers to the component NCET
 
 12) (NC times)
-    CO,CTT,LOK 
+    CO,CTT,LOK
         CO: initial concentration in the titration vessel (mol/L)
         CTT: concentration in the titrant (mol/L)
         LOK = 0: CO constant
@@ -191,7 +191,7 @@ goto item 10
              = 1: JB refined
         LOK4 = 0: SLOPE constant
              = 1: SLOPE refined
-        
+
 16) V,E,(SIGMA),IND
         V: titrant volume
         E: potential (or pH, if EO=0)
@@ -214,4 +214,3 @@ goto item 10
 (**) STACO4, FSTACO4: the same parameters must be constrained
                       for all the titrations
      BSTAC4, FBSTAC4: one can constrain several groups of parameters
-

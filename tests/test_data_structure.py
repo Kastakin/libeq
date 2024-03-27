@@ -2,7 +2,6 @@ import pytest
 from libeq.data_structure import SolverData
 
 
-
 def test_load_from_txt(tmp_path):
     file_path = tmp_path / "data.txt"
     file_path.write_text("[[1,2,3],[4,5,6]]\n[[1,2,3],[4,5,6]]\n[1.1,2.2,3.3]\n2\n3\n")

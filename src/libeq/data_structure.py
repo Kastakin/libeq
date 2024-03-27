@@ -1,7 +1,7 @@
 from functools import cached_property
 import numpy as np
 from pydantic import BaseModel, ConfigDict, computed_field, model_validator
-from pydantic_numpy.typing import Np2DArrayInt8, Np1DArrayFp64, Np2DArrayFp64
+from pydantic_numpy.typing import Np2DArrayInt8, Np1DArrayFp64
 import json
 from typing import Any, Dict, List
 
@@ -9,6 +9,40 @@ from .parsers.bstac import parse_file
 
 
 class SolverData(BaseModel):
+    """
+    Represents the data structure used for solving equations in the libeq library.
+
+    Attributes:
+        model_config (ConfigDict): Configuration dictionary for the model.
+        components (List[str]): List of component names.
+        stoichiometry (Np2DArrayInt8): Stoichiometric matrix.
+        solid_stoichiometry (Np2DArrayInt8): Stoichiometric matrix for solid components.
+        log_beta (Np1DArrayFp64): Array of logarithmic beta values.
+        log_ks (Np1DArrayFp64): Array of logarithmic Ks values.
+        charges (Np1DArrayFp64): Array of charges for each component.
+        species_charges (Np1DArrayFp64): Array of charges for each species.
+        c0 (Np1DArrayFp64 | None): Initial concentrations of components.
+        ct (Np1DArrayFp64 | None): Total concentrations of components.
+        v0 (float | None): Initial volume.
+        v_add (float | Np1DArrayFp64 | None): Additional volume(s).
+        num_add (int | None): Number of additional volumes.
+        ionic_strength_dependence (bool): Flag indicating if ionic strength dependence is considered.
+        ref_ionic_str (float | Np1DArrayFp64): Reference ionic strength value(s).
+        z_star (Np1DArrayFp64): Array of z* values.
+        p_star (Np1DArrayFp64): Array of p* values.
+        dbh_params (Np1DArrayFp64): Array of parameters for the Debye-Hückel equation.
+
+    Methods:
+        compute_fields(): Computes additional fields based on the existing data.
+        dbh_values(): Returns a dictionary of Debye-Hückel values.
+        species_names(): Returns a list of species names.
+        nc(): Returns the number of components.
+        ns(): Returns the number of species.
+        nf(): Returns the number of solid components.
+        load_from_bstac(file_path): Loads data from a BSTAC file.
+        load_from_json(file_path): Loads data from a JSON file.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     components: List[str]

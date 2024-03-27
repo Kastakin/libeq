@@ -6,7 +6,6 @@ from .data_structure import SolverData
 from .damping import damping
 from .nr import NewtonRaphson
 from .wrappers import outer_fixed_point
-from .utils import _ionic
 
 
 def EqSolver(
@@ -78,8 +77,6 @@ def EqSolver(
         data.dbh_values,
     )(NewtonRaphson)
 
-    print(log_beta)
-
     # Get the initial guess for the free concentrations
     initial_guess, log_beta = damping_fn(
         np.full_like(total_concentration, 1e-6),
@@ -89,8 +86,6 @@ def EqSolver(
         total_concentration=total_concentration,
         tol=1e-3,
     )
-
-    print(log_beta)
 
     # Apply Newton-Raphson iterations
     result, log_beta = nr_fn(
