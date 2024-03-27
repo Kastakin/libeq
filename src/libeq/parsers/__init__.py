@@ -1,6 +1,6 @@
 def parse_lines(lines):
     """This function takes the lines read from a BSTAC input file and returns a dictionary with the parsed data.
-    The first 
+    The first
 
     Args:
         lines (_type_): _description_
@@ -9,5 +9,5 @@ def parse_lines(lines):
         _type_: _description_
     """
     result = {}
-    
+
     return result

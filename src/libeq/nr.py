@@ -2,85 +2,104 @@ import numpy as np
 from .species_conc import species_concentration
 from .damping import damping as _damping
 from .excepts import TooManyIterations, FailedCalculateConcentrations
+from typing import List, Tuple, Dict, Any
+import numpy.typing as npt
 
 
 def NewtonRaphson(
-    x0,
+    x0: npt.NDArray,
     *,
-    log_beta,
-    log_ks,
-    stoichiometry,
-    solid_stoichiometry,
-    total_concentration,
-    solids_idx=[],
-    max_iterations=1000,
-    threshold=1e-10,
-    damping=False,
-    forcer=False,
-    scaling=False,
-    step_limiter=True,
-    zero_offdiag=False,
-    logc=False,
-    debug=False,
-    panic=True,
-    **kwargs,
-):
-    r"""Solve the set of equations J·δc = -F using Newton-Raphson's method.
+    log_beta: npt.NDArray,
+    log_ks: npt.NDArray,
+    stoichiometry: npt.NDArray,
+    solid_stoichiometry: npt.NDArray,
+    total_concentration: npt.NDArray,
+    solids_idx: List[int] = [],
+    max_iterations: int = 1000,
+    threshold: float = 1e-10,
+    damping: bool = False,
+    forcer: bool = False,
+    scaling: bool = False,
+    step_limiter: bool = True,
+    zero_offdiag: bool = False,
+    logc: bool = False,
+    debug: bool = False,
+    panic: bool = True,
+    **kwargs: Dict[str, Any],
+) -> Tuple[npt.NDArray, npt.NDArray]:
+    r"""
+    Solve the set of equations $J \cdot \delta c = -F$ using Newton-Raphson's method.
 
     Given an initial guess **x0** and the parameters of the titration, this
     function uses the Newton-Raphson method to solve the free
     concentrations.  It includes several
     convergence tecniques such as scaling, damping and step limiting. For the
     original source of damping and scaling see De Robertis, *et al.*,
-    [#f1]_ and also Del Piero, *et al.* [#f2]_
+    [^1] and also Del Piero, *et al.* [^2].
 
-    Parameters:
-        x0 (:class:`numpy.ndarray`): initial guess for iterations. If *logc* is
-            True, the natural logarithm of the concentrations is expected to be
-            input. Otherwise, the regular concentration are expected.
-        beta (:class:`numpy.ndarray`): values of equilibrium constants
-        stoichiometry (:class:`numpy.ndarray`): stoichiometric coefficients
-        T (:class:`numpy.ndarray`): total concentration values
-        scaling (bool, optional): Whether to use or not scaling techniques.
-            False by default. See :func:`DRscaling`.
-        damping (bool, optional): Whether to use or not damping techniques.
-            False by default. See :func:`DRdamping`.
-        step_limiter (bool, optional[True]): Whether to use step limiter or
-            not.  Step limiter attempts to avoid a step which leads to negative
-            concentrations. It searches the increments which will result in
-            negative concentrations and replaces the step
-            :math:`x_n = x_{n-1} + dx` for
-            :math:`x_n = x_{n+1} \cdot e^{dx}`
-            which always gives a positive concentration as a result.
-            It can jointly be used with the forcer.
-        forcer (bool, optional[False]): Whether to use forcer techniques.
-            False by default.
-        threshold (float): threshold criterium for convergence
-        max_iterations (int): maximum number of iterations allowed
-        zero_offdiag (bool): If this option is applied, all non-diagonal
-            elements of the jacobian are set to zero. This option is useful
-            when only an estimate of the free concentrations is wanted.
-        max_damps (int):  default, 2. maximum number of dampimgs allowed.
-            It applies only if damping = True.
-        logc (bool): Fit the logarithmic value of the concentration
-        debug (bool): The handle for logging
-        do_iterations (int, optional): Perform exatly *do_iterations*
-            iterations and do not test for convergence.
-        panic (bool, optional, default True): If convergence fails, dump to a
-            file the data to debug.
-    Returns:
-        :class:`numpy.ndarray`: An array containing the values of the free
-            concentrations.
-    Raises:
-        :class:`RuntimeError`: if the concentrations cannot be calculated
-        :class:`excepts.TooManyIterations`: if the maximum number of iterations
-            is reached.
 
-    .. warning:: This function is the very core of the program. Do not change
+    [^1]: De Robertis, *et al.*: *Analytica Chimica Acta* 1986, **191**, 385-398
+    [^2]: Del Piero, *et al.*: *Annali di Chimica* 2006, 96
+
+    !!! warning
+
+        This function is the very core of the program. Do not change
         the default parameters unless you know what you are doing.
 
-    .. [#f1] *Analytica Chimica Acta* 1986, **191**, 385-398
-    .. [#f2] Del Piero, *et al.*: *Annali di Chimica* 2006, 96.
+    Parameters
+    ----------
+    x0 : np.ndarray
+        $N_{points} \times N_c$ initial guess of components concentration.
+    log_beta : np.ndarray
+        $N_{points} \times N_s$ logarithm of the formation constants.
+    log_ks : np.ndarray
+        $N_{points} \times N_p$ logarithm of the solubility products.
+    stoichiometry : np.ndarray
+        $N_c \times N_s$ Stoichiometric matrix.
+    solid_stoichiometry : np.ndarray
+        $N_c \times N_p$ Stoichiometric matrix for solid species.
+    total_concentration : np.ndarray
+        $N_{points} \times N_c$ Total concentration of species.
+    solids_idx : List[int]
+        Indices of solid species.
+    max_iterations : int
+        Maximum number of iterations.
+    threshold : float
+        Convergence threshold.
+    damping : bool
+        Whether to apply damping.
+    forcer : bool
+        Whether to use a line search algorithm.
+    scaling : bool
+        Whether to apply scaling to the Jacobian matrix.
+    step_limiter : bool
+        Whether to limit the step size.
+    zero_offdiag : bool
+        Whether to zero out off-diagonal elements of the Jacobian matrix.
+    logc : bool
+        Whether to use logarithmic concentrations.
+    debug : bool
+        Whether to print debug information.
+    panic : bool
+        Whether to save intermediate results in case of failure.
+    **kwargs : Dict[str, Any]
+        Additional keyword arguments.
+
+    Returns
+    -------
+        x : np.ndarray
+            Array with dimensions $N_{points} \times N_c$.
+        log_beta : np.ndarray
+            Array with dimensions $N_{points} \times N_s$ contains the logarithm of the formation constants used.
+
+    Raises
+    ------
+    ValueError
+        If the input is incorrect.
+    FailedCalculateConcentrations
+        If the Jacobian or residuals cannot be calculated.
+    TooManyIterations
+        If too many iterations are performed without convergence.
     """
 
     def _panic_save():
@@ -95,7 +114,7 @@ def NewtonRaphson(
 
     if zero_offdiag and scaling:
         raise ValueError(
-            "Options scaling and zero_offdiag are not" + "compatible with each other"
+            "Options scaling and zero_offdiag are not compatible with each other"
         )
 
     if "do_iterations" in kwargs:
@@ -190,31 +209,66 @@ def NewtonRaphson(
     raise TooManyIterations("too many iterations", x)
 
 
-def linesearch3(x0, dx, log_beta, stoichiometry, T, lmax=None, g0=None, g2=None):
+def linesearch3(
+    x0: npt.NDArray,
+    dx: npt.NDArray,
+    log_beta: npt.NDArray,
+    stoichiometry: npt.NDArray,
+    T: npt.NDArray,
+    lmax=None,
+    g0=None,
+    g2=None,
+):
     r"""Three-point parabolic line search.
 
     This functions implements a 3-point linesearch in the Newton direction.
-    This is a variation of the line search for 2 points.[#]_ The function to
+    This is a variation of the line search for 2 points[^1]. The function to
     be minimized is the same though but the approach is different and it is
     adapted to the nature of the problem of concentration solving. We define
-    a function :math:`f=\frac12F\cdot F` which is to be minimized. Then we
-    define a parameter λ that 0<λ<1 which is the fraction of the Newton step
+    a function $(f=\frac12F\cdot F)$ which is to be minimized. Then we
+    define a parameter $\lambda$ that $0<\lambda<1$ which is the fraction of the Newton step
     and then another function *g* which is function of the fractional is
-    defined so that
-
-    .. math:: g(\lambda) = f(x_0 + \lambda \delta x)
-
-    We know that negative x₀ values are forbidden, therefore λ might limited
-    to values lower than 1. The maximum value allowed for λ is that that makes
+    defined so that:
+    $$
+    g(\lambda) = f(x_0 + \lambda \delta x)
+    $$
+    We know that negative $x_0$ values are forbidden, therefore $\lambda$ might limited
+    to values lower than 1. The maximum value allowed for $\lambda$ is that that makes
     any concentration equal to 0, therefore
-    :math:`\lambda_{max} = -x_0/\delta` if :math:`-x_0/\delta<1`
+    $(\lambda_{max} = -x_0/\delta$ if $-x_0/\delta<1)$
 
-    We model :math:`g(\lambda)` as a parabolic function for which we calculate
-    the values for λ=0, λ=½λ(max) and λ=0.99λ(max).
+    $g(\lambda)$ is modeled as a parabolic function for which we calculate
+    the values for $\lambda=0$, $\lambda= \frac{1}{2}\lambda_{max}$ and $\lambda=0.99\lambda_{max}$.
 
-    .. [#] W. H. Press, S. A. Teukolksy, W. T. Vetterling, Brian P. Flannery,
+    [^1]: W. H. Press, S. A. Teukolksy, W. T. Vetterling, Brian P. Flannery,
        Numerical Recipes in C. The Art of Scientific Computing, Second Edition
        1997, pages 384--385.
+
+    Parameters
+    ----------
+    x0 : np.ndarray
+        The initial state.
+    dx : np.ndarray
+        The Newton direction.
+    log_beta : np.ndarray
+        The logarithm of the formation constants.
+    stoichiometry : np.ndarray
+        The stoichiometric matrix.
+    T : np.ndarray
+        The total concentration.
+    lmax : np.ndarray
+        The maximum step allowed.
+    g0 : np.ndarray
+        The value of the function at λ=0.
+    g2 : np.ndarray
+        The value of the function at λ=0.99λ(max).
+
+    Returns
+    -------
+    lmin : np.ndarray
+        The minimum step.
+    gmin : np.ndarray
+        The value of the function at the minimum step.
     """
     nerr = np.geterr()
     np.seterr(all="ignore")
@@ -284,18 +338,25 @@ def linesearch3(x0, dx, log_beta, stoichiometry, T, lmax=None, g0=None, g2=None)
 
 
 def limit_step(x, dx):
-    r"""Limit step.
+    r"""
+    Limit step.
 
-    Given a state (**x**) and a step (**dx**), the next state is expected to be
-    :math:`x+dx`. However, in some cases negative values are forbidden. This
-    may happen for small values of the state. In the case of *x* being small
-    we can approximate :math:`x+1 \simeq e^{-x}`
+    Given a state (x) and a step (dx), the next state is expected to be
+    (x+dx). However, in some cases negative values are forbidden. This
+    may happen for small values of the state. In the case of x being small
+    we can approximate ($x+1 \approx e^{-x}$)
 
-    Parameters:
-        x (:class:`numpy.ndarray`): The state. It must be 1D.
-        dx (:class:`numpy.ndarray`): The step. It must have  the same length
-            than *x*.
+    Parameters
+    ----------
+    x : numpy.ndarray
+        The state. It must be 1D.
+    dx : numpy.ndarray
+        The step. It must have the same length as x.
 
+    Returns
+    -------
+    new_dx : numpy.ndarray
+        The limited step.
     """
     if len(x) != len(dx):
         raise ValueError("both arguments must have the same size")
@@ -307,34 +368,42 @@ def limit_step(x, dx):
 
 
 def DRScaling(J, F):
-    """Apply scaling to both jacobian and objective function.
+    r"""Apply scaling to both jacobian and objective function.
 
-    Applies scaling technique according to De Robertis, *et al.* [#f1]_
+    Applies scaling technique according to De Robertis, *et al.* [^1]
     The scaling technique overcomes the problem of divergence
     when the jacobian (here called G) matrix is near singular.
     "... scaling was applied to matrix *G* and to vector *e*
-    (residuals, :math:`e = C_{k, calcd} - C_k`)
-    according to the equations
-    :math:`g_{kj}^* = g_{kj}(g_{kk}g_{jj})^{-1/2}`
-    and
-    :math:`e_k^* = e_kg_{kk}^{-1/2}` where :math:`g_{kj}^*`
-    and :math:`e_k^*` are the elements of the scaled matrix and vector
+    (residuals, $e = C_{k, calcd} - C_k$
+    according to the equations $g_{kj}^* = g_{kj}(g_{kk}g_{jj})^{-1/2}$
+    and $(e_k^* = e_kg_{kk}^{-1/2}$ where $g_{kj}^*)$
+    and $(e_k^*)$ are the elements of the scaled matrix and vector
     respectively."
 
-    .. math:: J^*_{kj} = J_{kj}(J_{kk}J_{jj})^{-1/2}
-    .. math:: F^*_{k} = F_{k}J_{kk}^{-1/2}
+    $$
+    J^*_{kj} = J_{kj}(J_{kk}J_{jj})^{-1/2}\\
+    F^*_{k} = F_{k}J_{kk}^{-1/2}
+    $$
 
-    Parameters:
-        J (:class:`numpy.ndarray`): jacobian array, which will be modified.
-            It can be of any dimensionality provided that the last two are
-            of the same size.
-        F (:class:`numpy.ndarray`): residuals array, which will be modified.
-            If must have one dimmension less than J and the rest of the
-            axes be of the same size than J.
+    [^1]: De Robertis, *et al.*: *Analytica Chimica Acta* 1986, **191**, 385-398
 
-    Returns:
-        :class:`numpy.ndarray`: The diagonal of the jacobian, :math:`J_{ii}`
-            to scale back the result.
+
+    Parameters
+    ----------
+    J : numpy.ndarray
+        jacobian array, which will be modified.
+        It can be of any dimensionality provided that the last two are
+        of the same size.
+    F : numpy.ndarray
+        residuals array, which will be modified.
+        If must have one dimmension less than J and the rest of the
+        axes be of the same size than J.
+
+    Returns
+    -------
+    d : numpy.ndarray
+        The diagonal of the jacobian, $(J_{ii})$
+        to scale back the result.
     """
     d = J[np.arange(J.shape[0])[:, None], np.eye(J.shape[1], dtype=bool)]
     J /= np.sqrt(d[..., np.newaxis] * d[..., np.newaxis, :])
