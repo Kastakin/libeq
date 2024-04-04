@@ -161,18 +161,22 @@ def freeze_concentration(
             component removed.
     """
     new_x = total_concentration[:, independent_component]
-    beta_prime = np.log10(
+    log_beta_prime = np.log10(
         (
             (10 ** log_beta[np.newaxis, :])
             * new_x[:, np.newaxis] ** stoichiometry[independent_component, :]
         )
     )
     stoich_new = np.delete(stoichiometry, independent_component, axis=0)
+    solid_stoich_new = solid_stoichiometry
+    log_ks_prime = log_ks
     if solid_stoichiometry.shape[0] != 0:
         solid_stoich_new = np.delete(solid_stoichiometry, independent_component, axis=0)
-    else:
-        solid_stoich_new = solid_stoichiometry
+        log_ks_prime = (10 ** log_ks[np.newaxis, :]) / (
+            new_x ** solid_stoichiometry[independent_component, :]
+        )
+
     analc_new = np.delete(total_concentration, independent_component, axis=1)
 
     total_concentration, log_beta, log_ks, stoichiometry, solid_stoichiometry
-    return analc_new, beta_prime, log_ks, stoich_new, solid_stoich_new
+    return analc_new, log_beta_prime, log_ks_prime, stoich_new, solid_stoich_new
