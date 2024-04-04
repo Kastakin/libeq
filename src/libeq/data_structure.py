@@ -8,6 +8,14 @@ from typing import Any, Dict, List
 from .parsers.bstac import parse_file
 
 
+class DistributionOptions(BaseModel):
+    initial_log: float | None = None
+    final_log: float | None = None
+    log_increments: float | None = None
+
+    independent_component: int | None = None
+
+
 class SolverData(BaseModel):
     """
     Represents the data structure used for solving equations in the libeq library.
@@ -44,6 +52,8 @@ class SolverData(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+
+    distribution_opts: DistributionOptions = DistributionOptions()
 
     components: List[str]
     stoichiometry: Np2DArrayInt8
