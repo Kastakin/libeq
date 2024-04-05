@@ -173,7 +173,7 @@ def freeze_concentration(
     if solid_stoichiometry.shape[0] != 0:
         solid_stoich_new = np.delete(solid_stoichiometry, independent_component, axis=0)
         log_ks_prime = (10 ** log_ks[np.newaxis, :]) / (
-            new_x ** solid_stoichiometry[independent_component, :]
+            new_x[:, np.newaxis] ** solid_stoichiometry[independent_component, :]
         )
 
     analc_new = np.delete(total_concentration, independent_component, axis=1)
