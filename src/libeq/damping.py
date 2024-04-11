@@ -7,7 +7,6 @@ def damping(
     *,
     log_beta,
     stoichiometry,
-    solid_stoichiometry,
     total_concentration,
     max_iterations=1000,
     tol=2.5e-1,
@@ -26,7 +25,10 @@ def damping(
     iteration = 0
     while True:
         c_spec = species_concentration(
-            concentration, log_beta, stoichiometry, solid_stoichiometry, full=True
+            concentration,
+            log_beta,
+            stoichiometry,
+            full=True,
         )
 
         sum_reac, sum_prod = _sumps(c_spec, total_concentration, pstoich, nstoich)

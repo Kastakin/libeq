@@ -153,7 +153,7 @@ def parse_model(lines, icd, nc) -> list[dict[str, Any]]:
     return species
 
 
-def parse_file(lines):
+def parse_BSTAC_file(lines):
     # Define the list of tuples
     sections = [
         (lambda line: line.strip(), 1, "file_name"),  # TITLE

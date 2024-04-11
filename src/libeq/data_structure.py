@@ -5,7 +5,7 @@ from pydantic_numpy.typing import Np2DArrayInt8, Np1DArrayFp64
 import json
 from typing import Any, Dict, List
 
-from .parsers.bstac import parse_file
+from .parsers.bstac import parse_BSTAC_file
 
 
 class DistributionOptions(BaseModel):
@@ -146,14 +146,14 @@ class SolverData(BaseModel):
     @computed_field
     @cached_property
     def nf(self) -> int:
-        return self.solid_stoichiometry.shape[0]
+        return self.solid_stoichiometry.shape[1]
 
     @classmethod
     def load_from_bstac(cls, file_path: str) -> "SolverData":
         data = dict()
         with open(file_path, "r") as file:
             lines = file.readlines()
-            parsed_data = parse_file(lines)
+            parsed_data = parse_BSTAC_file(lines)
             data["stoichiometry"] = np.array(
                 [
                     [d[key] for key in d if key.startswith("IX")]
@@ -185,7 +185,43 @@ class SolverData(BaseModel):
         return cls(**data)
 
     @classmethod
-    def load_from_json(cls, file_path: str) -> "SolverData":
-        with open(file_path, "r") as file:
-            data = json.load(file)
+    def load_from_pyes(cls, pyes_data: str | dict) -> "SolverData":
+        if isinstance(pyes_data, str):
+            with open(pyes_data, "r") as file:
+                pyes_data = json.load(file)
+        data = dict()
+        data["components"] = list(pyes_data["compModel"]["Name"].values())
+
+        data["stoichiometry"] = np.row_stack(
+            [
+                list(pyes_data["speciesModel"][col].values())
+                for col in data["components"]
+            ]
+        )
+        data["log_beta"] = np.array(list(pyes_data["speciesModel"]["LogB"].values()))
+
+        data["solid_stoichiometry"] = np.row_stack(
+            [
+                list(pyes_data["solidSpeciesModel"][col].values())
+                for col in data["components"]
+            ]
+        )
+        data["log_ks"] = np.array(
+            list(pyes_data["solidSpeciesModel"]["LogKs"].values())
+        )
+        data["c0"] = np.array(list(pyes_data["concModel"]["C0"].values()))
+        data["ct"] = np.array(list(pyes_data["concModel"]["CT"].values()))
+
+        data["charges"] = np.array(list(pyes_data["compModel"]["Charge"].values()))
+        data["ionic_strength_dependence"] = pyes_data["imode"] != 0
+        data["dbh_params"] = [
+            pyes_data[name] for name in ["a", "b", "c0", "c1", "d0", "d1", "e0", "e1"]
+        ]
+
+        data["distribution_opts"] = DistributionOptions(
+            initial_log=pyes_data.get("initialLog"),
+            final_log=pyes_data.get("finalLog"),
+            log_increments=pyes_data.get("logInc"),
+            independent_component=pyes_data.get("ind_comp"),
+        )
         return cls(**data)

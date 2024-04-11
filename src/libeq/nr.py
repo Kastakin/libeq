@@ -22,7 +22,6 @@ def NewtonRaphson(
     scaling: bool = False,
     step_limiter: bool = True,
     zero_offdiag: bool = False,
-    logc: bool = False,
     debug: bool = False,
     panic: bool = True,
     **kwargs: Dict[str, Any],
@@ -76,8 +75,6 @@ def NewtonRaphson(
         Whether to limit the step size.
     zero_offdiag : bool
         Whether to zero out off-diagonal elements of the Jacobian matrix.
-    logc : bool
-        Whether to use logarithmic concentrations.
     debug : bool
         Whether to print debug information.
     panic : bool
@@ -126,43 +123,45 @@ def NewtonRaphson(
     else:
         do_iterations = None
 
+    n_components = stoichiometry.shape[0]
     n_species = stoichiometry.shape[1]
+    n_solids = solid_stoichiometry.shape[1]
 
-    if solids_idx:
-        solids = True
-    else:
-        solids = False
+    solids_to_remove = np.array(
+        list(set(range(n_components, n_components + n_solids)) - set(solids_idx)),
+        dtype=int,
+    )
 
     # copy x0 so that it is not modified outside this function.
-    x = np.copy(x0)
+    x = np.delete(np.copy(x0), solids_to_remove, axis=-1)
+    solid_stoichiometry = np.delete(
+        np.copy(solid_stoichiometry), solids_to_remove - n_components, axis=-1
+    )
+    log_ks = np.delete(np.copy(log_ks), solids_to_remove - n_components, axis=-1)
+
     # ------ check input --------
     # libaux.assert_array_dim(2, x0)
     x, total_concentration = np.atleast_2d(x, total_concentration)
 
     # ------ main loop ----------
     for iterations in range(max_iterations):
-        c0 = species_concentration(
-            x, log_beta, stoichiometry, solid_stoichiometry, full=True, logc=logc
-        )
-        if logc:
-            _c = 10 ** (c0)
-        else:
-            _c = c0
+        c0 = species_concentration(x, log_beta, stoichiometry, full=True)
+
+        _c = c0
 
         F = fobj(
             _c,
-            log_beta,
             log_ks,
             stoichiometry,
             solid_stoichiometry,
             total_concentration,
         )
-        J = jacobian(_c, stoichiometry, solid_stoichiometry, solids=solids, logc=logc)
+        J = jacobian(_c, stoichiometry, solid_stoichiometry)
 
-        if solids:
-            J = np.delete(J, solids_idx, axis=0)
-            J = np.delete(J, solids_idx, axis=1)
-            F = np.delete(F, solids_idx, axis=0)
+        # if len(solids_to_remove) > 0:
+        #     F = np.delete(F, solids_to_remove, axis=1)
+        #     J = np.delete(J, solids_to_remove, axis=1)
+        #     J = np.delete(J, solids_to_remove, axis=2)
 
         if np.any(np.isnan(J)):
             _panic_save()
@@ -192,19 +191,25 @@ def NewtonRaphson(
             )
             x += step_length[:, None] * dx
         elif step_limiter:
-            x += limit_step(x, dx) * x
+            x[:, :n_components] += (
+                limit_step(x[:, :n_components], dx[:, :n_components])
+                * x[:, :n_components]
+            )
+            x[:, n_components:] += dx[:, n_components:]
         else:
             x += dx * x
 
         if (do_iterations and iterations + 1 >= do_iterations) or np.all(
             np.abs(F) < threshold
         ):
+            if solids_to_remove.size != 0:
+                x = np.insert(
+                    x, np.clip(solids_to_remove, a_min=0, a_max=x.shape[1]), 0, axis=1
+                )
             return x, log_beta
 
         if damping:
-            x = _damping(
-                x, log_beta, stoichiometry, solid_stoichiometry, total_concentration
-            )
+            x = _damping(x, log_beta, stoichiometry, total_concentration)
 
     raise TooManyIterations("too many iterations", x)
 
@@ -413,51 +418,59 @@ def DRScaling(J, F):
 
 def fobj(
     concentration,
-    log_beta,
     log_ks,
     stoichiometry,
     solid_stoichiometry,
     total_concentration,
-    solids=False,
 ):
     nc = stoichiometry.shape[0]
+    nf = concentration.shape[1] - nc - stoichiometry.shape[1]
 
-    c1 = concentration[:, :nc]
-    c2 = concentration[:, nc:]
+    c_components = concentration[:, :nc]
+    c_solids = concentration[:, nc : nc + nf]
+    c_species = concentration[:, nc + nf :]
 
-    delta = (
-        c1
-        + np.sum(c2[:, np.newaxis, :] * stoichiometry[np.newaxis], axis=2)
-        - total_concentration
+    components_in_species = np.sum(
+        c_species[:, np.newaxis, :] * stoichiometry[np.newaxis], axis=2
     )
 
-    if solids:
-        solid_delta = np.log10(concentration[:, :nc]) @ solid_stoichiometry - log_ks
-        delta = np.concatenate((delta, solid_delta))
+    if c_solids.size > 0:
+        components_in_solids = np.sum(
+            c_solids[:, np.newaxis, :] * solid_stoichiometry[np.newaxis], axis=2
+        )
+    else:
+        components_in_solids = 0
+
+    delta = (
+        c_components
+        + components_in_species
+        + components_in_solids
+        - total_concentration
+    )
+    if nf > 0:
+        solid_delta = np.log10(c_components) @ solid_stoichiometry - log_ks
+    else:
+        solid_delta = np.empty((delta.shape[0], 0))
+    delta = np.concatenate((delta, solid_delta), axis=1)
 
     return delta
 
 
-def jacobian(
-    concentration, stoichiometry, solid_stoichiometry, solids=False, logc=False
-):
-    nc = stoichiometry.shape[0]
-    nt = nc
-
-    if solids:
-        nf = solid_stoichiometry.shape[0]
-        nt += nf
+def jacobian(concentration, stoichiometry, solid_stoichiometry):
+    nt = nc = stoichiometry.shape[0]
+    nf = solid_stoichiometry.shape[1]
+    nt += nf
 
     J = np.zeros(shape=(concentration.shape[0], nt, nt))
     diagonals = np.einsum(
-        "ij,jk->ijk", concentration[:, nc:], np.eye(concentration.shape[1] - nc)
+        "ij,jk->ijk", concentration[:, nt:], np.eye(concentration.shape[1] - nt)
     )
     # Compute Jacobian for soluble components only
     J[:, :nc, :nc] = stoichiometry @ diagonals @ stoichiometry.T
     J[:, range(nc), range(nc)] += concentration[:, :nc]
 
     # Add solid contribution if necessary
-    if solids:
-        J[nc:nt, :nc] = solid_stoichiometry.T
-        J[:nc, nc:nt] = solid_stoichiometry
+    if nf > 0:
+        J[:, nc:nt, :nc] = solid_stoichiometry.T
+        J[:, :nc, nc:nt] = solid_stoichiometry
     return J
