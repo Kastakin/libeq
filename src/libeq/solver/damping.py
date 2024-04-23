@@ -4,7 +4,7 @@ import numpy.typing as npt
 from libeq.utils import species_concentration
 
 
-def damping(
+def pcfm(
     concentration,
     *,
     log_beta,
@@ -14,6 +14,31 @@ def damping(
     tol=2.5e-1,
     **kwargs,
 ) -> npt.NDArray:
+    """
+    Solve the mass balance equations using the Positive Continious Fraction Method.
+
+    Parameters
+    ----------
+    concentration : numpy.ndarray
+        The concentration array of shape (n, c), where n is the number of points c is the number of components.
+    log_beta : numpy.ndarray
+        The logarithm of the equilibrium constants with shape (n, s), where s is the number of soluble species.
+    stoichiometry : numpy.ndarray
+        The stoichiometry matrix with shape (n, s), where s is the number of soluble species.
+    total_concentration : numpy.ndarray
+        The total concentration vector with shape (n, c), where n is the number of points c is the number of components..
+    max_iterations : int, optional
+        The maximum number of iterations (default is 1000).
+    tol : float, optional
+        The tolerance for convergence criteria (default is 2.5e-1).
+    **kwargs : dict
+        Additional keyword arguments.
+
+    Returns
+    -------
+    c_spec : numpy.ndarray
+        The solution to the mass balance equations.
+    """
     nc = stoichiometry.shape[0]
 
     coeff = np.array([0 for _ in range(nc)])

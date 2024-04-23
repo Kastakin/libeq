@@ -6,7 +6,7 @@ import numpy.typing as npt
 from libeq.excepts import FailedCalculateConcentrations, TooManyIterations
 from libeq.utils import species_concentration
 
-from .damping import damping as _damping
+from .damping import pcfm as _pcfm
 
 
 def newton_raphson(
@@ -50,20 +50,20 @@ def newton_raphson(
 
     Parameters
     ----------
-    x0 : np.ndarray
-        $N_{points} \times N_c$ initial guess of components concentration.
-    log_beta : np.ndarray
-        $N_{points} \times N_s$ logarithm of the formation constants.
-    log_ks : np.ndarray
-        $N_{points} \times N_p$ logarithm of the solubility products.
-    stoichiometry : np.ndarray
-        $N_c \times N_s$ Stoichiometric matrix.
-    solid_stoichiometry : np.ndarray
-        $N_c \times N_p$ Stoichiometric matrix for solid species.
-    total_concentration : np.ndarray
-        $N_{points} \times N_c$ Total concentration of species.
+    x0 : numpy.ndarray
+        The concentration array of shape (n, c+p), where n is the number of points c is the number of components and p is the number of precipitates.
+    log_beta : numpy.ndarray
+        The logarithm of the equilibrium constants with shape (n, s), where s is the number of soluble species.
+    log_ks : numpy.ndarray
+        The logarithm of the solubility products with shape (n, p), where p is the number of solid species.
+    stoichiometry : numpy.ndarray
+        The stoichiometry matrix with shape (n, s), where s is the number of soluble species.
+    solid_stoichiometry : numpy.ndarray
+        The stoichiometry matrix with shape (n, p), where s is the number of precipitable species.
+    total_concentration : numpy.ndarray
+        The total concentration vector with shape (n, c), where n is the number of points c is the number of components..
     solids_idx : List[int]
-        Indices of solid species.
+        Indices of solid species to compute.
     max_iterations : int
         Maximum number of iterations.
     threshold : float
@@ -87,8 +87,8 @@ def newton_raphson(
 
     Returns
     -------
-        x : np.ndarray
-            Array of equilibrium concentrations with dimensions $N_{points} \times N_c$.
+    x : numpy.ndarray
+        Array of shape (n, c+p) of final concentrations of all components in the system.
 
     Raises
     ------
@@ -205,7 +205,7 @@ def newton_raphson(
             return x
 
         if damping:
-            x = _damping(x, log_beta, stoichiometry, total_concentration)
+            x = _pcfm(x, log_beta, stoichiometry, total_concentration)
 
     raise TooManyIterations("too many iterations", x)
 
@@ -419,6 +419,27 @@ def fobj(
     solid_stoichiometry,
     total_concentration,
 ):
+    """
+    Calculate the objective function for a given set of parameters.
+
+    Parameters
+    ----------
+    concentration : numpy.ndarray
+        The concentration array of shape (n, c+p), where n is the number of points c is the number of components and p is the number of solid species.
+    log_ks : numpy.ndarray
+        The logarithm of the solubility products with shape (n, p), where p is the number of solid species.
+    stoichiometry : numpy.ndarray
+        The stoichiometry matrix with shape (n, s), where s is the number of soluble species.
+    solid_stoichiometry : numpy.ndarray
+        The stoichiometry matrix for solid species with shape (n, p), where p is the number of solid species.
+    total_concentration : numpy.ndarray
+        The total concentration vector with shape (n,c), where n is the number of points and c is the number of components.
+
+    Returns
+    -------
+    delta : numpy.ndarray
+        The objective function values with shape (n, nt), where nt is the total number of components (n + f).
+    """
     nc = stoichiometry.shape[0]
     nf = concentration.shape[1] - nc - stoichiometry.shape[1]
 
@@ -426,14 +447,14 @@ def fobj(
     c_solids = concentration[:, nc : nc + nf]
     c_species = concentration[:, nc + nf :]
 
-    components_in_species = np.sum(
-        c_species[:, np.newaxis, :] * stoichiometry[np.newaxis], axis=2
-    )
+    components_in_species = c_species[:, np.newaxis, :] * stoichiometry[np.newaxis]
+    components_in_species = np.sum(components_in_species, axis=2)
 
     if c_solids.size > 0:
-        components_in_solids = np.sum(
-            c_solids[:, np.newaxis, :] * solid_stoichiometry[np.newaxis], axis=2
+        components_in_solids = (
+            c_solids[:, np.newaxis, :] * solid_stoichiometry[np.newaxis]
         )
+        components_in_solids = np.sum(components_in_solids, axis=2)
     else:
         components_in_solids = 0
 
@@ -447,12 +468,31 @@ def fobj(
         solid_delta = np.log10(c_components) @ solid_stoichiometry - log_ks
     else:
         solid_delta = np.empty((delta.shape[0], 0))
+
     delta = np.concatenate((delta, solid_delta), axis=1)
 
     return delta
 
 
 def jacobian(concentration, stoichiometry, solid_stoichiometry):
+    """
+    Compute the Jacobian matrix for the given system of equations.
+
+    Parameters
+    ----------
+    concentration : numpy.ndarray
+        The concentration array of shape (n, c+p), where n is the number of points c is the number of components and p is the number of solid species.
+    stoichiometry : numpy.ndarray
+        The stoichiometry matrix of shape (c, s), representing the stoichiometric coefficients of the soluble components.
+    solid_stoichiometry : numpy.ndarray
+        The solid stoichiometry matrix of shape (n, p), representing the stoichiometric coefficients of the solid components.
+
+    Returns
+    -------
+    numpy.ndarray
+        The Jacobian matrix of shape (n, nt, nt), where nt is the total number of components (n + f).
+
+    """
     nt = nc = stoichiometry.shape[0]
     nf = solid_stoichiometry.shape[1]
     nt += nf

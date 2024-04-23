@@ -7,39 +7,35 @@ def species_concentration(
     stoichiometry,
     full=False,
 ):
-    r"""Compute the free concentrations for the extended components.
+    r"""
+    Calculate the species concentrations through the mass action law.
 
-    The concentration of the complexes is calculated by means of the
-    equilibrium condition.
+    $$
+    S_{i} = \beta_i \prod_{j=1}^{N_c} C_j^{p_{ij}}
+    $$
 
-    .. math::`c_{i+S} = \beta_i \prod_{j=1}^E c_j^p_{ji}`
+    With $S_i$ being the concentration of the species $i$, $\beta_i$ the equilibrium constant of the species $i$,
+    $C_j$ the concentration of the component $j$, and $p_{ij}$ the stoichiometric coefficient of the component $j$ in the species $i$.
 
-    This is an auxiliary function.
+    Parameters
+    ----------
+    concentration : numpy.ndarray
+        The concentration array of shape (n, c+p), where n is the number of points c is the number of components and p is the number of solid species.
+    log_beta : numpy.ndarray
+        The logarithm of the equilibrium constants with shape (n, s), where s is the number of solid species.
+    stoichiometry : numpy.ndarray
+        The stoichiometry matrix with shape (n, s), where s is the number of soluble species.
+    full : bool, optional
+        If True, return the concentrations of all species including the original concentrations.
+        If False, return only the concentrations of the new species.
 
-    Parameters:
-        concentration (:class:`numpy.ndarray`): The free concentrations of the
-            free components. It must be an (*S*,) or (*N*, *S*)-sized array
-            where *S* is the number of free components. This parameter can be
-            a masked array. In this case, the return concentration matrix will
-            also be masked.
-        beta (:class:`numpy.ndarray`): The equilibrium constants. The last
-            dimmension must be E-sized and the rest of the dimmensions must be
-            compatible with those of **concentration**.
-        stoichiometry (:class:`numpy.ndarray`): The stoichiometric coefficient
-            matrix. It must be (*E*, *S*)-sized where E is the number of
-            equilibria.
-        full (bool): If set, the return array will be the full (*N*, *S* + *E*)
-            array. If unset only the extra calculated array (*N*, *E*) will be
-            returned.
-    Returns:
-        :class:`numpy.ndarray`: array of size (*N*, *E*) containing the
-            extended concentrations
+    Returns
+    -------
+    numpy.ndarray
+        The calculated species concentrations.
 
-    Raises:
-        ValueError: If any parameter is incorrect.
     """
     nc = stoichiometry.shape[0]
-    # concentration[concentration <= 0] = sys.float_info.min
     _c = np.log10(concentration[:, :nc])
 
     cext = 10 ** (log_beta + _c @ stoichiometry)

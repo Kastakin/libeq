@@ -8,28 +8,42 @@ from libeq.data_structure import SolverData
 from libeq.utils import species_concentration
 from libeq.outer_fixed_point import outer_fixed_point
 
-from .damping import damping
+from .damping import pcfm
 from .nr import newton_raphson
-from .solids_solver import _solids_solver
+from .solids_solver import solids_solver
 
 
 def EqSolver(
     data: SolverData, mode: Literal["titration", "distribution"] = "titration"
 ):
     """
-    Solve the equilibrium equations for a given set of data.
+    Solve the equilibrium equations for a given chemical system.
 
-    Args:
-        data (SolverData): The input data containing the necessary information for the solver.
-        mode (Literal["titration", "distribution"], optional): The mode of operation for the solver.
-            Defaults to "titration".
+    The solver uses a conjuntion of methods to solve the problem at hand. In particular:
 
-    Returns:
-        Tuple: A tuple containing the result of the solver and the updated values of the equilibrium constants.
+    - The Positive Continious Fraction Method (PCFM) is used to presolve the equilibrium equations.
+    - The Newton-Raphson method is used to solve the equilibrium equations.
+    - The outer fixed point method is used to solve the equilibrium equations for solids.
 
-    Raises:
-        None
+    Parameters
+    ----------
+    data : SolverData
+        The input data containing all the necessary information for the solver.
+    mode : {"titration", "distribution"}, optional
+        The mode of operation for the solver. Default is "titration".
 
+    Returns
+    -------
+    result : ndarray
+        The calculated equilibrium concentrations.
+    log_beta : ndarray
+        The logarithm of the stability constants.
+    log_ks : ndarray
+        The logarithm of the solubility products.
+    saturation_index : ndarray
+        The calculated saturation indices for solid phases.
+    total_concentration : ndarray
+        The total concentrations used in the calculations.
     """
     # Read the data
     stoichiometry = data.stoichiometry
@@ -98,7 +112,7 @@ def EqSolver(
     damping_fn = outer_fixed_point(
         *outer_fiexd_point_params,
         independent_component_activity=independent_component_activity,
-    )(damping)
+    )(pcfm)
 
     nr_fn = outer_fixed_point(
         *outer_fiexd_point_params,
@@ -134,7 +148,7 @@ def EqSolver(
     )
 
     if data.nf > 0:
-        result, log_beta, log_ks, saturation_index = _solids_solver(
+        result, log_beta, log_ks, saturation_index = solids_solver(
             result,
             log_beta,
             log_ks,

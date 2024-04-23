@@ -4,7 +4,7 @@ from .nr import newton_raphson
 from libeq.outer_fixed_point import outer_fixed_point
 
 
-def _solids_solver(
+def solids_solver(
     concentrations: NDArray,
     log_beta,
     log_ks,
@@ -16,6 +16,43 @@ def _solids_solver(
     outer_fiexd_point_params,
     independent_component_activity=None,
 ):
+    """
+    Solve for concentrations of solids in a chemical equilibrium system.
+
+    Parameters
+    ----------
+    concentrations : numpy.ndarray
+        The concentration array of shape (n, c), where n is the number of points c is the number of components.
+    log_beta : numpy.ndarray
+        The logarithm of the equilibrium constants with shape (n, s), where s is the number of soluble species.
+    log_ks : numpy.ndarray
+        The logarithm of the solubility products with shape (n, p), where p is the number of solid species.
+    original_log_beta : numpy.ndarray
+        The logarithm of the equilibrium constants at reference ionic strength with shape (n, s), where s is the number of soluble species.
+    original_log_ks : numpy.ndarray
+        The logarithm of the solubility products at reference ionic strength with shape (n, p), where p is the number of solid species.
+    stoichiometry : numpy.ndarray
+        The stoichiometry matrix with shape (n, s), where s is the number of soluble species.
+    solid_stoichiometry : numpy.ndarray
+        The stoichiometry matrix with shape (n, p), where s is the number of precipitable species.
+    total_concentration : numpy.ndarray
+        The total concentration vector with shape (n, c), where n is the number of points c is the number of components..
+    outer_fiexd_point_params : tuple
+        Tuple of parameters for the outer fixed point function.
+    independent_component_activity : numpy.ndarray, optional
+        Array of activity coefficients for the independent components in the system.
+
+    Returns
+    -------
+    final_result : numpy.ndarray
+        Array of final concentrations of all components in the system.
+    final_log_beta : numpy.ndarray
+        Array of final logarithm of the formation constants for all components in the system.
+    final_log_ks : numpy.ndarray
+        Array of final logarithm of the solubility product constants for all solid components in the system.
+    final_saturation_index : numpy.ndarray
+        Array of final saturation indices for all solid components in the system.
+    """
     final_result = np.empty_like(concentrations)
     final_log_beta = np.empty_like(log_beta)
     final_log_ks = np.empty_like(log_ks)
