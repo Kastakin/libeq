@@ -2,11 +2,11 @@ import numpy as np
 from .species_conc import species_concentration
 from .damping import damping as _damping
 from .excepts import TooManyIterations, FailedCalculateConcentrations
-from typing import List, Tuple, Dict, Any
+from typing import List, Dict, Any
 import numpy.typing as npt
 
 
-def NewtonRaphson(
+def newton_raphson(
     x0: npt.NDArray,
     *,
     log_beta: npt.NDArray,
@@ -25,7 +25,7 @@ def NewtonRaphson(
     debug: bool = False,
     panic: bool = True,
     **kwargs: Dict[str, Any],
-) -> Tuple[npt.NDArray, npt.NDArray]:
+) -> npt.NDArray:
     r"""
     Solve the set of equations $J \cdot \delta c = -F$ using Newton-Raphson's method.
 
@@ -85,9 +85,7 @@ def NewtonRaphson(
     Returns
     -------
         x : np.ndarray
-            Array with dimensions $N_{points} \times N_c$.
-        log_beta : np.ndarray
-            Array with dimensions $N_{points} \times N_s$ contains the logarithm of the formation constants used.
+            Array of equilibrium concentrations with dimensions $N_{points} \times N_c$.
 
     Raises
     ------
@@ -158,11 +156,6 @@ def NewtonRaphson(
         )
         J = jacobian(_c, stoichiometry, solid_stoichiometry)
 
-        # if len(solids_to_remove) > 0:
-        #     F = np.delete(F, solids_to_remove, axis=1)
-        #     J = np.delete(J, solids_to_remove, axis=1)
-        #     J = np.delete(J, solids_to_remove, axis=2)
-
         if np.any(np.isnan(J)):
             _panic_save()
             msg2 = f"could not calculate jacobian (iteration {iterations})"
@@ -206,7 +199,7 @@ def NewtonRaphson(
                 x = np.insert(
                     x, np.clip(solids_to_remove, a_min=0, a_max=x.shape[1]), 0, axis=1
                 )
-            return x, log_beta
+            return x
 
         if damping:
             x = _damping(x, log_beta, stoichiometry, total_concentration)

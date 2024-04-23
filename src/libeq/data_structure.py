@@ -1,14 +1,14 @@
 from functools import cached_property
 import numpy as np
-from pydantic import BaseModel, ConfigDict, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, computed_field
 from pydantic_numpy.typing import Np2DArrayInt8, Np1DArrayFp64
 import json
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from .parsers.bstac import parse_BSTAC_file
 
 
-class DistributionOptions(BaseModel):
+class DistributionParameters(BaseModel):
     initial_log: float | None = None
     final_log: float | None = None
     log_increments: float | None = None
@@ -16,44 +16,15 @@ class DistributionOptions(BaseModel):
     independent_component: int | None = None
 
 
+class TitrationParameters(BaseModel):
+    pass
+
+
 class SolverData(BaseModel):
-    """
-    Represents the data structure used for solving equations in the libeq library.
-
-    Attributes:
-        model_config (ConfigDict): Configuration dictionary for the model.
-        components (List[str]): List of component names.
-        stoichiometry (Np2DArrayInt8): Stoichiometric matrix.
-        solid_stoichiometry (Np2DArrayInt8): Stoichiometric matrix for solid components.
-        log_beta (Np1DArrayFp64): Array of logarithmic beta values.
-        log_ks (Np1DArrayFp64): Array of logarithmic Ks values.
-        charges (Np1DArrayFp64): Array of charges for each component.
-        species_charges (Np1DArrayFp64): Array of charges for each species.
-        c0 (Np1DArrayFp64 | None): Initial concentrations of components.
-        ct (Np1DArrayFp64 | None): Total concentrations of components.
-        v0 (float | None): Initial volume.
-        v_add (float | Np1DArrayFp64 | None): Additional volume(s).
-        num_add (int | None): Number of additional volumes.
-        ionic_strength_dependence (bool): Flag indicating if ionic strength dependence is considered.
-        ref_ionic_str (float | Np1DArrayFp64): Reference ionic strength value(s).
-        z_star (Np1DArrayFp64): Array of z* values.
-        p_star (Np1DArrayFp64): Array of p* values.
-        dbh_params (Np1DArrayFp64): Array of parameters for the Debye-Hückel equation.
-
-    Methods:
-        compute_fields(): Computes additional fields based on the existing data.
-        dbh_values(): Returns a dictionary of Debye-Hückel values.
-        species_names(): Returns a list of species names.
-        nc(): Returns the number of components.
-        ns(): Returns the number of species.
-        nf(): Returns the number of solid components.
-        load_from_bstac(file_path): Loads data from a BSTAC file.
-        load_from_json(file_path): Loads data from a JSON file.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
-    distribution_opts: DistributionOptions = DistributionOptions()
+    distribution_opts: DistributionParameters = DistributionParameters()
+    titration_opts: TitrationParameters = TitrationParameters()
 
     components: List[str]
     stoichiometry: Np2DArrayInt8
@@ -61,62 +32,72 @@ class SolverData(BaseModel):
     log_beta: Np1DArrayFp64
     log_ks: Np1DArrayFp64 = np.array([])
     charges: Np1DArrayFp64 = np.array([])
-    species_charges: Np1DArrayFp64 = np.array([])
     c0: Np1DArrayFp64 | None = None
     ct: Np1DArrayFp64 | None = None
     v0: float | None = None
     v_add: float | Np1DArrayFp64 | None = None
-    num_add: int | None = None
+    v_increment: float | None = None
+    n_add: int | None = None
     ionic_strength_dependence: bool = False
-    ref_ionic_str: float | Np1DArrayFp64 = 0.0
-    z_star: Np1DArrayFp64 = np.array([])
-    p_star: Np1DArrayFp64 = np.array([])
+    reference_ionic_str_species: Np1DArrayFp64
+    reference_ionic_str_solids: Np1DArrayFp64
     dbh_params: Np1DArrayFp64 = np.array([])
 
-    azast: Np1DArrayFp64 = np.array([])
-    bdh: float = 0.0
-    cdh: Np1DArrayFp64 = np.array([])
-    ddh: Np1DArrayFp64 = np.array([])
-    edh: Np1DArrayFp64 = np.array([])
-    fib: Np1DArrayFp64 = np.array([])
+    @computed_field
+    @cached_property
+    def species_charges(self) -> Np1DArrayFp64:
+        return (self.stoichiometry * self.charges[:, np.newaxis]).sum(axis=0)
 
-    @model_validator(mode="after")
-    def compute_fields(self) -> Dict[str, Any]:
-        self.species_charges = (self.stoichiometry * self.charges[:, np.newaxis]).sum(
-            axis=0
-        )
+    @computed_field
+    @cached_property
+    def solid_charges(self) -> Np1DArrayFp64:
+        return (self.solid_stoichiometry * self.charges[:, np.newaxis]).sum(axis=0)
 
-        self.ref_ionic_str = np.full(self.stoichiometry.shape[1], 0.1)
-
-        self.z_star = (self.stoichiometry * (self.charges[:, np.newaxis] ** 2)).sum(
+    @computed_field(repr=False)
+    @cached_property
+    def z_star_species(self) -> Np1DArrayFp64:
+        return (self.stoichiometry * (self.charges[:, np.newaxis] ** 2)).sum(
             axis=0
         ) - self.species_charges**2
 
-        self.p_star = self.stoichiometry.sum(axis=0) - 1
+    @computed_field(repr=False)
+    @cached_property
+    def p_star_species(self) -> Np1DArrayFp64:
+        return self.stoichiometry.sum(axis=0) - 1
 
-        self.azast = self.dbh_params[0] * self.z_star
-        self.bdh = self.dbh_params[1]
-        self.cdh = self.dbh_params[2] * self.p_star + self.dbh_params[3] * self.z_star
-        self.ddh = self.dbh_params[4] * self.p_star + self.dbh_params[5] * self.z_star
-        self.edh = self.dbh_params[6] * self.p_star + self.dbh_params[7] * self.z_star
-        self.fib = np.sqrt(self.ref_ionic_str) / (
-            1 + self.dbh_params[1] * np.sqrt(self.ref_ionic_str)
-        )
+    @computed_field(repr=False)
+    @cached_property
+    def z_star_solids(self) -> Np1DArrayFp64:
+        return (self.solid_stoichiometry * (self.charges[:, np.newaxis] ** 2)).sum(
+            axis=0
+        ) - self.solid_charges**2
 
-        return self
+    @computed_field(repr=False)
+    @cached_property
+    def p_star_solids(self) -> Np1DArrayFp64:
+        return self.solid_stoichiometry.sum(axis=0)
 
     @computed_field
     @cached_property
     def dbh_values(self) -> Dict[str, Np1DArrayFp64]:
-        return {
-            "azast": self.azast,
-            "adh": self.dbh_params[0],
-            "bdh": self.bdh,
-            "cdh": self.cdh,
-            "ddh": self.ddh,
-            "edh": self.edh,
-            "fib": self.fib,
-        }
+        result = dict()
+        for phase, iref, z, p in zip(
+            ("species", "solids"),
+            (self.reference_ionic_str_species, self.reference_ionic_str_solids),
+            (self.z_star_species, self.z_star_solids),
+            (self.p_star_species, self.p_star_solids),
+        ):
+            dbh_values = dict()
+            dbh_values["azast"] = self.dbh_params[0] * z
+            dbh_values["adh"] = self.dbh_params[0]
+            dbh_values["bdh"] = self.dbh_params[1]
+            dbh_values["cdh"] = self.dbh_params[2] * p + self.dbh_params[3] * z
+            dbh_values["ddh"] = self.dbh_params[4] * p + self.dbh_params[5] * z
+            dbh_values["edh"] = self.dbh_params[6] * p + self.dbh_params[7] * z
+            dbh_values["fib"] = np.sqrt(iref) / (1 + self.dbh_params[1] * np.sqrt(iref))
+
+            result[phase] = dbh_values
+        return result
 
     @computed_field
     @cached_property
@@ -209,16 +190,26 @@ class SolverData(BaseModel):
         data["log_ks"] = np.array(
             list(pyes_data["solidSpeciesModel"]["LogKs"].values())
         )
+
         data["c0"] = np.array(list(pyes_data["concModel"]["C0"].values()))
         data["ct"] = np.array(list(pyes_data["concModel"]["CT"].values()))
+        data["v0"] = pyes_data["v0"]
+        data["n_add"] = pyes_data["nop"]
+        data["v_increment"] = pyes_data["vinc"]
 
         data["charges"] = np.array(list(pyes_data["compModel"]["Charge"].values()))
         data["ionic_strength_dependence"] = pyes_data["imode"] != 0
+        data["reference_ionic_str_species"] = np.array(
+            [pyes_data["ris"] for _ in range(data["stoichiometry"].shape[1])]
+        )
+        data["reference_ionic_str_solids"] = np.array(
+            [pyes_data["ris"] for _ in range(data["solid_stoichiometry"].shape[1])]
+        )
         data["dbh_params"] = [
             pyes_data[name] for name in ["a", "b", "c0", "c1", "d0", "d1", "e0", "e1"]
         ]
 
-        data["distribution_opts"] = DistributionOptions(
+        data["distribution_opts"] = DistributionParameters(
             initial_log=pyes_data.get("initialLog"),
             final_log=pyes_data.get("finalLog"),
             log_increments=pyes_data.get("logInc"),

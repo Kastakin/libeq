@@ -25,7 +25,7 @@ def _update_formation_constants(
 ):
     cis = np.tile(ionic_strength, ref_ionic_strength.shape[0])
     radqcis = np.sqrt(cis)
-    fib2 = radqcis / (1 + ([dbh_values["bdh"]] * radqcis))
+    fib2 = radqcis / (1 + (dbh_values["bdh"] * radqcis))
     return (
         log_beta
         - dbh_values["azast"] * (fib2 - dbh_values["fib"])
@@ -39,16 +39,18 @@ def _update_formation_constants(
 def _update_solubility_products(log_ks, ionic_strength, ref_ionic_strength, dbh_values):
     cis = np.tile(ionic_strength, ref_ionic_strength.shape[0])
     radqcis = np.sqrt(cis)
-    fib2 = radqcis / (1 + ([dbh_values["bdh"]] * radqcis))
+    fib2 = radqcis / (1 + (dbh_values["bdh"] * radqcis))
     return (
         log_ks
-        - dbh_values["azast"] * (fib2 - dbh_values["fib"])
-        + dbh_values["cdh"] * (cis - ref_ionic_strength)
-        + dbh_values["ddh"]
-        * ((cis * radqcis) - (ref_ionic_strength * (ref_ionic_strength) ** 0.5))
-        + dbh_values["edh"] * ((cis**2) - (ref_ionic_strength**2))
+        + dbh_values["azast"] * (fib2 - dbh_values["fib"])
+        - dbh_values["cdh"] * (cis - ref_ionic_strength)
+        - dbh_values["ddh"]
+        * ((cis * radqcis) - (ref_ionic_strength * (ref_ionic_strength**0.5)))
+        - dbh_values["edh"] * ((cis**2) - (ref_ionic_strength**2))
     )
 
 
-def _check_outer_point_convergence(activity, old_activity):
-    return np.all(np.abs(activity - old_activity) < 1e-3)
+def _check_outer_point_convergence(log_beta, old_log_beta, log_ks, old_log_ks):
+    return np.all((np.abs(log_beta - old_log_beta) < 1e-4)) and np.all(
+        np.abs(log_ks - old_log_ks) < 1e-4
+    )

@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.typing as npt
 from .species_conc import species_concentration
 
 
@@ -11,7 +12,7 @@ def damping(
     max_iterations=1000,
     tol=2.5e-1,
     **kwargs,
-):
+) -> npt.NDArray:
     nc = stoichiometry.shape[0]
 
     coeff = np.array([0 for _ in range(nc)])
@@ -36,7 +37,7 @@ def damping(
         conv_criteria = np.abs((sum_reac - sum_prod) / (sum_reac + sum_prod))
 
         if np.all(conv_criteria <= tol) or iteration >= max_iterations:
-            return c_spec[:, :nc], log_beta
+            return c_spec[:, :nc]
 
         ratio = sum_prod / sum_reac
         new_coeff = 0.9 - np.where(ratio < 1.0, ratio, 1 / ratio) * 0.8
