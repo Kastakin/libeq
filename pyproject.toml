@@ -32,6 +32,7 @@ mkdocs-section-index = "^0.3.8"
 markdown-katex = "^202112.1034"
 mkdocs-glightbox = "^0.3.7"
 black = "^24.3.0"
+griffe-fieldz = "^0.1.2"
 
 
 [build-system]
