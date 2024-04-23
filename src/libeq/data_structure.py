@@ -5,7 +5,7 @@ from pydantic_numpy.typing import Np2DArrayInt8, Np1DArrayFp64
 import json
 from typing import Dict, List
 
-from .parsers.bstac import parse_BSTAC_file
+from .parsers import parse_BSTAC_file
 
 
 class DistributionParameters(BaseModel):
@@ -28,7 +28,7 @@ class SolverData(BaseModel):
 
     components: List[str]
     stoichiometry: Np2DArrayInt8
-    solid_stoichiometry: Np2DArrayInt8 = np.empty((0, 0), dtype=np.int8)
+    solid_stoichiometry: Np2DArrayInt8
     log_beta: Np1DArrayFp64
     log_ks: Np1DArrayFp64 = np.array([])
     charges: Np1DArrayFp64 = np.array([])
@@ -141,6 +141,9 @@ class SolverData(BaseModel):
                     for d in parsed_data["species"]
                 ]
             ).T
+            data["solid_stoichiometry"] = np.empty(
+                (data["stoichiometry"].shape[0], 0), dtype=np.int8
+            )
             data["log_beta"] = np.array([d["BLOG"] for d in parsed_data["species"]])
             data["v_add"] = np.array(parsed_data["titrations"][0]["volume"])
             data["c0"] = np.array(
@@ -160,6 +163,15 @@ class SolverData(BaseModel):
             data["charges"] = np.array(parsed_data.get("charges", []))
             data["components"] = parsed_data["comp_name"]
             data["ionic_strength_dependence"] = parsed_data["ICD"] != 0
+            data["reference_ionic_str_species"] = np.array(
+                [parsed_data["IREF"] for _ in range(data["stoichiometry"].shape[1])]
+            )
+            data["reference_ionic_str_solids"] = np.array(
+                [
+                    parsed_data["IREF"]
+                    for _ in range(data["solid_stoichiometry"].shape[1])
+                ]
+            )
             data["dbh_params"] = [
                 parsed_data[i] for i in ["AT", "BT", "c0", "c1", "d0", "d1", "e0", "e1"]
             ]

@@ -1,4 +1,4 @@
-def PotOptimizer():
+def PotentiometryOptimizer():
     # Load the n titrations with their potential from the data file
 
     # Until convergence is reached or we reach the maximum number of iterations:

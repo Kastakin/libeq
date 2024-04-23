@@ -1,9 +1,12 @@
+from typing import Any, Dict, List
+
 import numpy as np
-from .species_conc import species_concentration
-from .damping import damping as _damping
-from .excepts import TooManyIterations, FailedCalculateConcentrations
-from typing import List, Dict, Any
 import numpy.typing as npt
+
+from libeq.excepts import FailedCalculateConcentrations, TooManyIterations
+from libeq.utils import species_concentration
+
+from .damping import damping as _damping
 
 
 def newton_raphson(

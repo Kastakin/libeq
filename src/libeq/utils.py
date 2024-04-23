@@ -1,56 +1,52 @@
 import numpy as np
-from numpy.typing import NDArray
 
 
-def _ionic(concentration: NDArray, charges: NDArray, **kwargs) -> NDArray:
-    return 0.5 * (concentration * (charges**2)).sum(axis=1, keepdims=True)
-
-
-def _calculate_activity_coeff(ionic_strength, charges, dbh_values):
-    return (
-        -dbh_values["adh"]
-        * (charges**2)
-        * (
-            np.sqrt(ionic_strength)
-            / (1 + (dbh_values["bdh"] * np.sqrt(ionic_strength)))
-        )
-        + dbh_values["cdh"] * ionic_strength
-        + dbh_values["ddh"] * ionic_strength**1.5
-        + dbh_values["edh"] * ionic_strength**2
-    )
-
-
-def _update_formation_constants(
-    log_beta, ionic_strength, ref_ionic_strength, dbh_values
+def species_concentration(
+    concentration,
+    log_beta,
+    stoichiometry,
+    full=False,
 ):
-    cis = np.tile(ionic_strength, ref_ionic_strength.shape[0])
-    radqcis = np.sqrt(cis)
-    fib2 = radqcis / (1 + (dbh_values["bdh"] * radqcis))
-    return (
-        log_beta
-        - dbh_values["azast"] * (fib2 - dbh_values["fib"])
-        + dbh_values["cdh"] * (cis - ref_ionic_strength)
-        + dbh_values["ddh"]
-        * ((cis * radqcis) - (ref_ionic_strength * (ref_ionic_strength) ** 0.5))
-        + dbh_values["edh"] * ((cis**2) - (ref_ionic_strength**2))
-    )
+    r"""Compute the free concentrations for the extended components.
 
+    The concentration of the complexes is calculated by means of the
+    equilibrium condition.
 
-def _update_solubility_products(log_ks, ionic_strength, ref_ionic_strength, dbh_values):
-    cis = np.tile(ionic_strength, ref_ionic_strength.shape[0])
-    radqcis = np.sqrt(cis)
-    fib2 = radqcis / (1 + (dbh_values["bdh"] * radqcis))
-    return (
-        log_ks
-        + dbh_values["azast"] * (fib2 - dbh_values["fib"])
-        - dbh_values["cdh"] * (cis - ref_ionic_strength)
-        - dbh_values["ddh"]
-        * ((cis * radqcis) - (ref_ionic_strength * (ref_ionic_strength**0.5)))
-        - dbh_values["edh"] * ((cis**2) - (ref_ionic_strength**2))
-    )
+    .. math::`c_{i+S} = \beta_i \prod_{j=1}^E c_j^p_{ji}`
 
+    This is an auxiliary function.
 
-def _check_outer_point_convergence(log_beta, old_log_beta, log_ks, old_log_ks):
-    return np.all((np.abs(log_beta - old_log_beta) < 1e-4)) and np.all(
-        np.abs(log_ks - old_log_ks) < 1e-4
-    )
+    Parameters:
+        concentration (:class:`numpy.ndarray`): The free concentrations of the
+            free components. It must be an (*S*,) or (*N*, *S*)-sized array
+            where *S* is the number of free components. This parameter can be
+            a masked array. In this case, the return concentration matrix will
+            also be masked.
+        beta (:class:`numpy.ndarray`): The equilibrium constants. The last
+            dimmension must be E-sized and the rest of the dimmensions must be
+            compatible with those of **concentration**.
+        stoichiometry (:class:`numpy.ndarray`): The stoichiometric coefficient
+            matrix. It must be (*E*, *S*)-sized where E is the number of
+            equilibria.
+        full (bool): If set, the return array will be the full (*N*, *S* + *E*)
+            array. If unset only the extra calculated array (*N*, *E*) will be
+            returned.
+    Returns:
+        :class:`numpy.ndarray`: array of size (*N*, *E*) containing the
+            extended concentrations
+
+    Raises:
+        ValueError: If any parameter is incorrect.
+    """
+    nc = stoichiometry.shape[0]
+    # concentration[concentration <= 0] = sys.float_info.min
+    _c = np.log10(concentration[:, :nc])
+
+    cext = 10 ** (log_beta + _c @ stoichiometry)
+
+    if full:
+        p = np.concatenate((concentration, cext), axis=1)
+    else:
+        p = cext
+
+    return p

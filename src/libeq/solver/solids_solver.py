@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 from .nr import newton_raphson
-from .wrappers import outer_fixed_point
+from libeq.outer_fixed_point import outer_fixed_point
 
 
 def _solids_solver(

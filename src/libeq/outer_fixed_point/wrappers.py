@@ -1,11 +1,11 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from .species_conc import species_concentration
+from libeq.utils import species_concentration
 
 from .utils import (
-    _ionic,
     _check_outer_point_convergence,
+    _select_species_concentration,
     _update_formation_constants,
     _update_solubility_products,
 )
@@ -119,6 +119,9 @@ def outer_fixed_point(
         ) -> NDArray:
             return _ionic(concentration, charges) + independent_component_activity
 
+        def _ionic(concentration: NDArray, charges: NDArray, **kwargs) -> NDArray:
+            return 0.5 * (concentration * (charges**2)).sum(axis=1, keepdims=True)
+
         if ionic_strength_dependence:
             if independent_component_activity is None:
                 _ionic_fn = _ionic
@@ -130,13 +133,3 @@ def outer_fixed_point(
             return unwrapped
 
     return decorator
-
-
-def _select_species_concentration(c, n_components, n_species):
-    return np.concatenate(
-        (
-            c[:, :n_components],
-            c[:, -n_species:],
-        ),
-        axis=1,
-    )

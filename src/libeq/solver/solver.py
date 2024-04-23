@@ -1,14 +1,16 @@
+from copy import deepcopy
 from typing import Literal
+
 import numpy as np
 from numpy.typing import NDArray
 
-from copy import deepcopy
-from .data_structure import SolverData
-from .species_conc import species_concentration
+from libeq.data_structure import SolverData
+from libeq.utils import species_concentration
+from libeq.outer_fixed_point import outer_fixed_point
+
 from .damping import damping
 from .nr import newton_raphson
 from .solids_solver import _solids_solver
-from .wrappers import outer_fixed_point
 
 
 def EqSolver(
@@ -42,10 +44,10 @@ def EqSolver(
     if mode == "titration":
         c0 = data.c0
         ct = data.ct
-        v0 = data.v0 * 1e-3
+        v0 = data.v0
         v_add = data.v_add
         if v_add is None:
-            v_add = np.arange(data.n_add) * (data.v_increment * 1e-3)
+            v_add = np.arange(data.n_add) * (data.v_increment)
         total_concentration: NDArray = (
             ((c0 * v0)[:, np.newaxis] + ct[:, np.newaxis] * v_add) / (v_add + v0)
         ).T

@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.typing as npt
-from .species_conc import species_concentration
+
+from libeq.utils import species_concentration
 
 
 def damping(
