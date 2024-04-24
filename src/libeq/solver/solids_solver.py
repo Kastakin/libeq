@@ -63,7 +63,7 @@ def solids_solver(
     )
 
     all_indices = set(range(concentrations.shape[0]))
-    no_solids_points = np.where((all_saturation_index < 1).any(axis=1))[0].tolist()
+    no_solids_points = np.where((all_saturation_index < 1).all(axis=1))[0].tolist()
 
     final_result[no_solids_points] = concentrations[no_solids_points]
     final_log_beta[no_solids_points] = log_beta[no_solids_points]
@@ -129,7 +129,7 @@ def _update_solids_set(
     total_concentration, c, point_log_ks, saturation_index, solids_set
 ):
     adjust_solids = True
-    negative_solid_concentration = c[:, point_log_ks.shape[1] :] < 0
+    negative_solid_concentration = c[:, point_log_ks.size :] < 0
     supersaturated_solid = saturation_index > 1 + 1e-9
 
     # any negative solid concentration remove them from the solids set
