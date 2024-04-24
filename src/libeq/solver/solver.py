@@ -8,7 +8,7 @@ from libeq.data_structure import SolverData
 from libeq.utils import species_concentration
 from libeq.outer_fixed_point import outer_fixed_point
 
-from .damping import pcfm
+from .damping import pcf
 from .nr import newton_raphson
 from .solids_solver import solids_solver
 
@@ -112,7 +112,7 @@ def EqSolver(
     damping_fn = outer_fixed_point(
         *outer_fiexd_point_params,
         independent_component_activity=independent_component_activity,
-    )(pcfm)
+    )(pcf)
 
     nr_fn = outer_fixed_point(
         *outer_fiexd_point_params,

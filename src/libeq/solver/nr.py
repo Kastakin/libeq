@@ -6,7 +6,7 @@ import numpy.typing as npt
 from libeq.excepts import FailedCalculateConcentrations, TooManyIterations
 from libeq.utils import species_concentration
 
-from .damping import pcfm as _pcfm
+from .damping import pcf
 
 
 def newton_raphson(
@@ -205,7 +205,7 @@ def newton_raphson(
             return x
 
         if damping:
-            x = _pcfm(x, log_beta, stoichiometry, total_concentration)
+            x = pcf(x, log_beta, stoichiometry, total_concentration)
 
     raise TooManyIterations("too many iterations", x)
 

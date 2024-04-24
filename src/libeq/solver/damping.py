@@ -4,7 +4,7 @@ import numpy.typing as npt
 from libeq.utils import species_concentration
 
 
-def pcfm(
+def pcf(
     concentration,
     *,
     log_beta,
