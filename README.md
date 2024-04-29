@@ -1,6 +1,6 @@
 <p align="center">
 
-<img src="docs/assets/logo.png" style="width: 25vw;">
+<img src="docs/assets/logo.png" style="width: 5vw;">
 
 # libeq
 
