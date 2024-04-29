@@ -14,8 +14,14 @@ def pcf(
     tol=2.5e-1,
     **kwargs,
 ) -> npt.NDArray:
-    """
-    Solve the mass balance equations using the Positive Continious Fraction Method.
+    r"""
+    Solve the mass balance equations using the Positive Continious Fraction method  by Marinoni, *et al.* [^1].
+
+    $$
+    \left[X_{j}\right]^{n+1}=\theta_{j}^{n}\left[X_{j}\right]^{n}\left(\frac{S u m_{j}^{p r o d,n}}{S u m_{j}^{r e a c t,n}}\right)^{1/a_{i0j}}+\left(1-\theta_{j}^{n}\right)\left[X_{j}\right]^{n}
+    $$
+
+    [^1]: Carrayrou, *et al.*: *AIChE Journal* 2017, **63**, 1246-1262
 
     Parameters
     ----------

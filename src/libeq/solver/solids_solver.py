@@ -126,8 +126,40 @@ def solids_solver(
 
 
 def _update_solids_set(
-    total_concentration, c, point_log_ks, saturation_index, solids_set
+    total_concentration: NDArray,
+    c: NDArray,
+    point_log_ks: NDArray,
+    saturation_index: NDArray,
+    solids_set: set,
 ):
+    """
+    Update the set of solid indices based on concentration and saturation index.
+    If any solid is supersatured it is added to the set of solid indices.
+    If instead any solid has negative concentration it is removed from the set of solid indices.
+    Finally if no solid needs to be added or removed to the set of solid indices the
+    flag adjust_solids is set to False and the solid assemblage is considered determined.
+
+    Parameters
+    ----------
+    total_concentration : numpy.ndarray
+        Array containing total concentrations.
+    c : numpy.ndarray
+        Array of concentrations.
+    point_log_ks : numpy.ndarray
+        Array of log equilibrium constants.
+    saturation_index : numpy.ndarray
+        Array of saturation indices.
+    solids_set : set
+        Set of solid indices.
+
+    Returns
+    -------
+    solids_set : set
+        Updated set of solid indices.
+    adjust_solids : bool
+        Flag indicating if solids need adjustment.
+
+    """
     adjust_solids = True
     negative_solid_concentration = c[:, point_log_ks.size :] < 0
     supersaturated_solid = saturation_index > 1 + 1e-9
