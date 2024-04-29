@@ -86,3 +86,5 @@ plugins:
             show_signature_annotations: true
             filters: ["!^_"]
             show_if_no_docstring: true
+            extensions:
+              - griffe_fieldz

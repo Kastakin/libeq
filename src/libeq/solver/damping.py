@@ -1,18 +1,50 @@
 import numpy as np
-from .species_conc import species_concentration
+import numpy.typing as npt
+
+from libeq.utils import species_concentration
 
 
-def damping(
+def pcf(
     concentration,
     *,
     log_beta,
     stoichiometry,
-    solid_stoichiometry,
     total_concentration,
     max_iterations=1000,
     tol=2.5e-1,
     **kwargs,
-):
+) -> npt.NDArray:
+    r"""
+    Solve the mass balance equations using the Positive Continious Fraction method  by Marinoni, *et al.* [^1].
+
+    $$
+    \left[X_{j}\right]^{n+1}=\theta_{j}^{n}\left[X_{j}\right]^{n}\left(\frac{S u m_{j}^{p r o d,n}}{S u m_{j}^{r e a c t,n}}\right)^{1/a_{i0j}}+\left(1-\theta_{j}^{n}\right)\left[X_{j}\right]^{n}
+    $$
+
+    [^1]: Carrayrou, *et al.*: *AIChE Journal* 2017, **63**, 1246-1262
+
+    Parameters
+    ----------
+    concentration : numpy.ndarray
+        The concentration array of shape (n, c), where n is the number of points c is the number of components.
+    log_beta : numpy.ndarray
+        The logarithm of the equilibrium constants with shape (n, s), where s is the number of soluble species.
+    stoichiometry : numpy.ndarray
+        The stoichiometry matrix with shape (n, s), where s is the number of soluble species.
+    total_concentration : numpy.ndarray
+        The total concentration vector with shape (n, c), where n is the number of points c is the number of components..
+    max_iterations : int, optional
+        The maximum number of iterations (default is 1000).
+    tol : float, optional
+        The tolerance for convergence criteria (default is 2.5e-1).
+    **kwargs : dict
+        Additional keyword arguments.
+
+    Returns
+    -------
+    c_spec : numpy.ndarray
+        The solution to the mass balance equations.
+    """
     nc = stoichiometry.shape[0]
 
     coeff = np.array([0 for _ in range(nc)])
@@ -26,7 +58,10 @@ def damping(
     iteration = 0
     while True:
         c_spec = species_concentration(
-            concentration, log_beta, stoichiometry, solid_stoichiometry, full=True
+            concentration,
+            log_beta,
+            stoichiometry,
+            full=True,
         )
 
         sum_reac, sum_prod = _sumps(c_spec, total_concentration, pstoich, nstoich)
@@ -34,7 +69,7 @@ def damping(
         conv_criteria = np.abs((sum_reac - sum_prod) / (sum_reac + sum_prod))
 
         if np.all(conv_criteria <= tol) or iteration >= max_iterations:
-            return c_spec[:, :nc], log_beta
+            return c_spec[:, :nc]
 
         ratio = sum_prod / sum_reac
         new_coeff = 0.9 - np.where(ratio < 1.0, ratio, 1 / ratio) * 0.8

@@ -1,50 +1,48 @@
 import numpy as np
-from numpy.typing import NDArray
-from .species_conc import species_concentration
 
 
-def _ionic(
-    concentration: NDArray,
+def species_concentration(
+    concentration,
     log_beta,
     stoichiometry,
-    solid_stoichiometry,
-    charges: NDArray,
-) -> NDArray:
-    return 0.5 * (
-        species_concentration(
-            concentration, log_beta, stoichiometry, solid_stoichiometry, full=True
-        )
-        * (charges**2)
-    ).sum(axis=1, keepdims=True)
+    full=False,
+):
+    r"""
+    Calculate the species concentrations through the mass action law.
 
+    $$
+    S_{i} = \beta_i \prod_{j=1}^{N_c} C_j^{p_{ij}}
+    $$
 
-def _calculate_activity_coeff(ionic_strength, charges, dbh_values):
-    return (
-        -dbh_values["adh"]
-        * (charges**2)
-        * (
-            np.sqrt(ionic_strength)
-            / (1 + (dbh_values["bdh"] * np.sqrt(ionic_strength)))
-        )
-        + dbh_values["cdh"] * ionic_strength
-        + dbh_values["ddh"] * ionic_strength**1.5
-        + dbh_values["edh"] * ionic_strength**2
-    )
+    With $S_i$ being the concentration of the species $i$, $\beta_i$ the equilibrium constant of the species $i$,
+    $C_j$ the concentration of the component $j$, and $p_{ij}$ the stoichiometric coefficient of the component $j$ in the species $i$.
 
+    Parameters
+    ----------
+    concentration : numpy.ndarray
+        The concentration array of shape (n, c+p), where n is the number of points c is the number of components and p is the number of solid species.
+    log_beta : numpy.ndarray
+        The logarithm of the equilibrium constants with shape (n, s), where s is the number of solid species.
+    stoichiometry : numpy.ndarray
+        The stoichiometry matrix with shape (n, s), where s is the number of soluble species.
+    full : bool, optional
+        If True, return the concentrations of all species including the original concentrations.
+        If False, return only the concentrations of the new species.
 
-def _update_constants(log_beta, ionic_strength, ref_ionic_strength, dbh_values):
-    cis = np.tile(ionic_strength, ref_ionic_strength.shape[0])
-    radqcis = np.sqrt(cis)
-    fib2 = radqcis / (1 + ([dbh_values["bdh"]] * radqcis))
-    return (
-        log_beta
-        - dbh_values["azast"] * (fib2 - dbh_values["fib"])
-        + dbh_values["cdh"] * (cis - ref_ionic_strength)
-        + dbh_values["ddh"]
-        * ((cis * radqcis) - (ref_ionic_strength * (ref_ionic_strength) ** 0.5))
-        + dbh_values["edh"] * ((cis**2) - (ref_ionic_strength**2))
-    )
+    Returns
+    -------
+    numpy.ndarray
+        The calculated species concentrations.
 
+    """
+    nc = stoichiometry.shape[0]
+    _c = np.log10(concentration[:, :nc])
 
-def _check_outer_point_convergence(activity, old_activity):
-    return np.all(np.abs(activity - old_activity) < 1e-3)
+    cext = 10 ** (log_beta + _c @ stoichiometry)
+
+    if full:
+        p = np.concatenate((concentration, cext), axis=1)
+    else:
+        p = cext
+
+    return p
