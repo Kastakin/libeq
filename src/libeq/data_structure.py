@@ -9,6 +9,8 @@ from .parsers import parse_BSTAC_file
 
 
 class DistributionParameters(BaseModel):
+    c0: Np1DArrayFp64 | None = None
+
     initial_log: float | None = None
     final_log: float | None = None
     log_increments: float | None = None
@@ -17,14 +19,38 @@ class DistributionParameters(BaseModel):
 
 
 class TitrationParameters(BaseModel):
-    pass
+    c0: Np1DArrayFp64 | None = None
+    ct: Np1DArrayFp64 | None = None
+
+
+class TitrationSimulationParameters(TitrationParameters):
+    v0: float | None = None
+    v_increment: float | None = None
+    n_add: int | None = None
+
+
+class PotentiometryTitrationsParameters(TitrationParameters):
+    electro_active_compoment: int | None = None
+    e0: float | None = None
+    slope: float | None = None
+    v0: float | None = None
+    v_add: Np1DArrayFp64 | None = None
+    emf: Np1DArrayFp64 | None = None
+
+
+class PotentiometryOptions(BaseModel):
+    titrations: List[PotentiometryTitrationsParameters] = []
+    beta_flags: List[bool] = []
+    conc_flags: List[bool] = []
+    pot_flags: List[bool] = []
 
 
 class SolverData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     distribution_opts: DistributionParameters = DistributionParameters()
-    titration_opts: TitrationParameters = TitrationParameters()
+    titration_opts: TitrationSimulationParameters = TitrationSimulationParameters()
+    potentiometry_options: PotentiometryOptions = PotentiometryOptions()
 
     components: List[str]
     stoichiometry: Np2DArrayInt8
@@ -32,12 +58,7 @@ class SolverData(BaseModel):
     log_beta: Np1DArrayFp64
     log_ks: Np1DArrayFp64 = np.array([])
     charges: Np1DArrayFp64 = np.array([])
-    c0: Np1DArrayFp64 | None = None
-    ct: Np1DArrayFp64 | None = None
-    v0: float | None = None
-    v_add: float | Np1DArrayFp64 | None = None
-    v_increment: float | None = None
-    n_add: int | None = None
+
     ionic_strength_dependence: bool = False
     reference_ionic_str_species: Np1DArrayFp64
     reference_ionic_str_solids: Np1DArrayFp64
@@ -203,12 +224,6 @@ class SolverData(BaseModel):
             list(pyes_data["solidSpeciesModel"]["LogKs"].values())
         )
 
-        data["c0"] = np.array(list(pyes_data["concModel"]["C0"].values()))
-        data["ct"] = np.array(list(pyes_data["concModel"]["CT"].values()))
-        data["v0"] = pyes_data["v0"]
-        data["n_add"] = pyes_data["nop"]
-        data["v_increment"] = pyes_data["vinc"]
-
         data["charges"] = np.array(list(pyes_data["compModel"]["Charge"].values()))
         data["ionic_strength_dependence"] = pyes_data["imode"] != 0
         data["reference_ionic_str_species"] = np.array(
@@ -222,9 +237,18 @@ class SolverData(BaseModel):
         ]
 
         data["distribution_opts"] = DistributionParameters(
+            c0=np.array(list(pyes_data["concModel"]["C0"].values())),
             initial_log=pyes_data.get("initialLog"),
             final_log=pyes_data.get("finalLog"),
             log_increments=pyes_data.get("logInc"),
             independent_component=pyes_data.get("ind_comp"),
+        )
+
+        data["titration_opts"] = TitrationSimulationParameters(
+            c0=np.array(list(pyes_data["concModel"]["C0"].values())),
+            ct=np.array(list(pyes_data["concModel"]["CT"].values())),
+            v0=pyes_data.get("v0"),
+            v_increment=pyes_data.get("vinc"),
+            n_add=pyes_data.get("nop"),
         )
         return cls(**data)

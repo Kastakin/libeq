@@ -14,7 +14,6 @@ def solids_solver(
     solid_stoichiometry,
     total_concentration,
     outer_fiexd_point_params,
-    independent_component_activity=None,
 ):
     """
     Solve for concentrations of solids in a chemical equilibrium system.
@@ -37,10 +36,8 @@ def solids_solver(
         The stoichiometry matrix with shape (n, p), where s is the number of precipitable species.
     total_concentration : numpy.ndarray
         The total concentration vector with shape (n, c), where n is the number of points c is the number of components..
-    outer_fiexd_point_params : tuple
-        Tuple of parameters for the outer fixed point function.
-    independent_component_activity : numpy.ndarray, optional
-        Array of activity coefficients for the independent components in the system.
+    outer_fiexd_point_params : dict
+        Dict of parameters for the outer fixed point function.
 
     Returns
     -------
@@ -71,6 +68,10 @@ def solids_solver(
 
     solids_points = all_indices - set(no_solids_points)
 
+    independent_component_activity = outer_fiexd_point_params.pop(
+        "independent_component_activity", None
+    )
+
     for point in solids_points:
         solids_set = set()
         (
@@ -90,7 +91,7 @@ def solids_solver(
 
         adjust_solids = True
         newton_raphson_solver = outer_fixed_point(
-            *outer_fiexd_point_params,
+            **outer_fiexd_point_params,
             independent_component_activity=point_independent_component_activity,
         )(newton_raphson)
 

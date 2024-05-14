@@ -21,7 +21,7 @@ def test_titration_fix(solver_data):
     assert outsource(log_beta.tobytes()) == snapshot(external("d72a93ac3eac*.bin"))
     assert outsource(log_ks.tobytes()) == snapshot(external("1167b0e94b2a*.bin"))
     assert outsource(saturation_index.tobytes()) == snapshot(
-        external("2e9c04de08a6*.bin")
+        external("e23a0f3b589c*.bin")
     )
     assert outsource(total_concentration.tobytes()) == snapshot(
         external("0b166a60f644*.bin")

@@ -5,10 +5,11 @@ from libeq.utils import species_concentration
 
 
 def outer_fixed_point(
+    *,
     ionic_strength_dependence: bool = False,
     charges: NDArray | None = None,
-    ref_ionic_strength_species: NDArray | None = None,
-    ref_ionic_strength_solids: NDArray | None = None,
+    reference_ionic_str_species: NDArray | None = None,
+    reference_ionic_str_solids: NDArray | None = None,
     dbh_values: dict[str, dict[str, NDArray]] | None = None,
     independent_component_activity: NDArray | None = None,
 ):
@@ -111,11 +112,11 @@ def outer_fixed_point(
             log_beta = _update_formation_constants(
                 og_log_beta,
                 ionic,
-                ref_ionic_strength_species,
+                reference_ionic_str_species,
                 dbh_values["species"],
             )
             log_ks = _update_solubility_products(
-                og_log_ks, ionic, ref_ionic_strength_solids, dbh_values["solids"]
+                og_log_ks, ionic, reference_ionic_str_solids, dbh_values["solids"]
             )
 
             result = concentration
@@ -148,11 +149,11 @@ def outer_fixed_point(
                 log_beta = _update_formation_constants(
                     og_log_beta,
                     ionic,
-                    ref_ionic_strength_species,
+                    reference_ionic_str_species,
                     dbh_values["species"],
                 )
                 log_ks = _update_solubility_products(
-                    og_log_ks, ionic, ref_ionic_strength_solids, dbh_values["solids"]
+                    og_log_ks, ionic, reference_ionic_str_solids, dbh_values["solids"]
                 )
 
                 if _check_outer_point_convergence(
