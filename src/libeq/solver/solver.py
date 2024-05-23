@@ -4,6 +4,7 @@ import numpy as np
 
 from libeq.data_structure import SolverData
 from libeq.outer_fixed_point import outer_fixed_point
+from ..utils import species_concentration
 
 from .damping import pcf
 from .nr import newton_raphson
@@ -113,6 +114,7 @@ def solve_equilibrium_equations(
     total_concentration,
     outer_fiexd_point_params,
     initial_guess=None,
+    full=False,
 ):
     if initial_guess is None:
         initial_guess = np.full_like(total_concentration, 1e-10)
@@ -173,5 +175,8 @@ def solve_equilibrium_equations(
         )
     else:
         saturation_index = np.empty((result.shape[0], 0))
+
+    if full:
+        result = species_concentration(result, log_beta, stoichiometry, full)
 
     return result, log_beta, log_ks, saturation_index, total_concentration

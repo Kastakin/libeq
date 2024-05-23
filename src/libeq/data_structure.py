@@ -3,7 +3,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, computed_field
 from pydantic_numpy.typing import Np2DArrayInt8, Np1DArrayFp64
 import json
-from typing import Dict, List
+from typing import Dict, List, Literal
 
 from .parsers import parse_BSTAC_file
 
@@ -23,7 +23,7 @@ class TitrationParameters(BaseModel):
     ct: Np1DArrayFp64 | None = None
 
 
-class TitrationSimulationParameters(TitrationParameters):
+class SimulationTitrationParameters(TitrationParameters):
     v0: float | None = None
     v_increment: float | None = None
     n_add: int | None = None
@@ -32,24 +32,28 @@ class TitrationSimulationParameters(TitrationParameters):
 class PotentiometryTitrationsParameters(TitrationParameters):
     electro_active_compoment: int | None = None
     e0: float | None = None
+    e0_sigma: float | None = None
     slope: float | None = None
     v0: float | None = None
+    v0_sigma: float | None = None
     v_add: Np1DArrayFp64 | None = None
     emf: Np1DArrayFp64 | None = None
 
 
 class PotentiometryOptions(BaseModel):
     titrations: List[PotentiometryTitrationsParameters] = []
-    beta_flags: List[bool] = []
-    conc_flags: List[bool] = []
-    pot_flags: List[bool] = []
+    px_range: List[float] = [0, 0]
+    weights: Literal["constants", "calculated", "given"] = "constants"
+    beta_flags: List[int] = []
+    conc_flags: List[int] = []
+    pot_flags: List[int] = []
 
 
 class SolverData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     distribution_opts: DistributionParameters = DistributionParameters()
-    titration_opts: TitrationSimulationParameters = TitrationSimulationParameters()
+    titration_opts: SimulationTitrationParameters = SimulationTitrationParameters()
     potentiometry_options: PotentiometryOptions = PotentiometryOptions()
 
     components: List[str]
@@ -60,9 +64,9 @@ class SolverData(BaseModel):
     charges: Np1DArrayFp64 = np.array([])
 
     ionic_strength_dependence: bool = False
-    reference_ionic_str_species: Np1DArrayFp64
-    reference_ionic_str_solids: Np1DArrayFp64
-    dbh_params: Np1DArrayFp64 = np.array([])
+    reference_ionic_str_species: Np1DArrayFp64 | float = 0
+    reference_ionic_str_solids: Np1DArrayFp64 | float = 0
+    dbh_params: Np1DArrayFp64 = np.zeros(8)
 
     @computed_field
     @cached_property
@@ -155,35 +159,24 @@ class SolverData(BaseModel):
         data = dict()
         with open(file_path, "r") as file:
             lines = file.readlines()
-            parsed_data = parse_BSTAC_file(lines)
-            data["stoichiometry"] = np.array(
-                [
-                    [d[key] for key in d if key.startswith("IX")]
-                    for d in parsed_data["species"]
-                ]
-            ).T
-            data["solid_stoichiometry"] = np.empty(
-                (data["stoichiometry"].shape[0], 0), dtype=np.int8
-            )
-            data["log_beta"] = np.array([d["BLOG"] for d in parsed_data["species"]])
-            data["v_add"] = np.array(parsed_data["titrations"][0]["volume"])
-            data["c0"] = np.array(
-                [
-                    d["C0"]
-                    for d in parsed_data["titrations"][0]["components_concentrations"]
-                ]
-            )
-            data["ct"] = np.array(
-                [
-                    d["CTT"]
-                    for d in parsed_data["titrations"][0]["components_concentrations"]
-                ]
-            )
-            data["v0"] = parsed_data["titrations"][0]["v_params"][0]
+        parsed_data = parse_BSTAC_file(lines)
 
-            data["charges"] = np.array(parsed_data.get("charges", []))
-            data["components"] = parsed_data["comp_name"]
-            data["ionic_strength_dependence"] = parsed_data["ICD"] != 0
+        temperature = parsed_data["TEMP"]
+        data["stoichiometry"] = np.array(
+            [
+                [d[key] for key in d if key.startswith("IX")]
+                for d in parsed_data["species"]
+            ]
+        ).T
+        data["solid_stoichiometry"] = np.empty(
+            (data["stoichiometry"].shape[0], 0), dtype=np.int8
+        )
+        data["log_beta"] = np.array([d["BLOG"] for d in parsed_data["species"]])
+
+        data["charges"] = np.array(parsed_data.get("charges", []))
+        data["components"] = parsed_data["comp_name"]
+        data["ionic_strength_dependence"] = parsed_data["ICD"] != 0
+        if data["ionic_strength_dependence"]:
             data["reference_ionic_str_species"] = np.array(
                 [parsed_data["IREF"] for _ in range(data["stoichiometry"].shape[1])]
             )
@@ -196,6 +189,50 @@ class SolverData(BaseModel):
             data["dbh_params"] = [
                 parsed_data[i] for i in ["AT", "BT", "c0", "c1", "d0", "d1", "e0", "e1"]
             ]
+
+        titration_options = [
+            PotentiometryTitrationsParameters(
+                c0=np.array([c["C0"] for c in t["components_concentrations"]]),
+                ct=np.array([c["CTT"] for c in t["components_concentrations"]]),
+                electro_active_compoment=(
+                    t["titration_comp_settings"][1]
+                    if t["titration_comp_settings"][1] != 0
+                    else len(data["components"]) - 1
+                ),
+                e0=t["potential_params"][0],
+                e0_sigma=t["potential_params"][1],
+                slope=(
+                    t["potential_params"][4]
+                    if t["potential_params"][4] != 0
+                    else (temperature + 273.15) / 11.6048 * 2.303
+                ),
+                v0=t["v_params"][0],
+                v0_sigma=t["v_params"][1],
+                v_add=np.array(t["volume"]),
+                emf=np.array(t["potential"]),
+            )
+            for t in parsed_data["titrations"]
+        ]
+
+        weights = parsed_data.get("MODE", 1)
+        match weights:
+            case 0:
+                weights = "calculated"
+            case 1:
+                weights = "constants"
+            case 2:
+                weights = "given"
+            case _:
+                raise ValueError("Invalid MODE value")
+
+        data["potentiometry_options"] = PotentiometryOptions(
+            titrations=titration_options,
+            weights=weights,
+            px_range=[parsed_data["PHI"], parsed_data["PHF"]],
+            beta_flags=[s["KEY"] for s in parsed_data["species"]],
+            conc_flags=[],
+            pot_flags=[],
+        )
         return cls(**data)
 
     @classmethod
@@ -244,7 +281,7 @@ class SolverData(BaseModel):
             independent_component=pyes_data.get("ind_comp"),
         )
 
-        data["titration_opts"] = TitrationSimulationParameters(
+        data["titration_opts"] = SimulationTitrationParameters(
             c0=np.array(list(pyes_data["concModel"]["C0"].values())),
             ct=np.array(list(pyes_data["concModel"]["CT"].values())),
             v0=pyes_data.get("v0"),

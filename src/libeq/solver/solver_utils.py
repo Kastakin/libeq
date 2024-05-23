@@ -3,7 +3,11 @@ from copy import deepcopy
 import numpy as np
 from numpy.typing import NDArray
 
-from libeq.data_structure import SolverData
+from libeq.data_structure import (
+    SolverData,
+    SimulationTitrationParameters,
+    PotentiometryTitrationsParameters,
+)
 from libeq.utils import species_concentration
 
 
@@ -204,13 +208,7 @@ def _prepare_titration_data(data: SolverData):
         independent_component_activity,
     ) = _prepare_common_data(data)
 
-    c0 = data.titration_opts.c0
-    ct = data.titration_opts.ct
-    v0 = data.titration_opts.v0
-    v_add = np.arange(data.titration_opts.n_add) * (data.titration_opts.v_increment)
-    total_concentration: NDArray = (
-        ((c0 * v0)[:, np.newaxis] + ct[:, np.newaxis] * v_add) / (v_add + v0)
-    ).T
+    total_concentration = _titration_total_c(data.titration_opts)
     original_log_beta = np.tile(original_log_beta, (total_concentration.shape[0], 1))
     original_log_ks = np.tile(original_log_ks, (total_concentration.shape[0], 1))
 
@@ -223,6 +221,27 @@ def _prepare_titration_data(data: SolverData):
         independent_component_activity,
         total_concentration,
     )
+
+
+def _titration_total_c(
+    titration_data: PotentiometryTitrationsParameters | SimulationTitrationParameters,
+    idx=None,
+):
+    c0 = titration_data.c0
+    ct = titration_data.ct
+    v0 = titration_data.v0
+
+    if isinstance(titration_data, PotentiometryTitrationsParameters):
+        v_add = titration_data.v_add
+        if idx is not None:
+            v_add = v_add[idx]
+    else:
+        v_add = np.arange(titration_data.n_add) * (titration_data.v_increment)
+    total_concentration: NDArray = (
+        ((c0 * v0)[:, np.newaxis] + ct[:, np.newaxis] * v_add) / (v_add + v0)
+    ).T
+
+    return total_concentration
 
 
 def _simplify_model(
