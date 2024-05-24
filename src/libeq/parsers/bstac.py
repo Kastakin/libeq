@@ -160,8 +160,8 @@ def parse_BSTAC_file(lines):
         (
             lambda line: [int(part) for part in line.split()],
             1,
-            ["MAXIT", "NC", "NS", "JW", "ICD", "WESP", "SHLIM"],
-        ),  # MAXIT,NC,NS,JW,ICD,WESP,SHLIM
+            ["MAXIT", "NC", "NS", "MODE", "ICD", "WESP", "SHLIM"],
+        ),  # MAXIT,NC,NS,MODE,ICD,WESP,SHLIM
         (lambda line: line.strip(), "NC", "comp_name"),  # COMP
         (
             lambda line: [float(part) for part in line.split()],
@@ -215,7 +215,8 @@ def parse_BSTAC_file(lines):
                     result[field_name] = data
                 line_counter += 1
             else:
-                result[name] = []
+                for field_name, data in zip(name, process_func(lines[line_counter])):
+                    result[field_name] = None
         elif repeat == "NS":
             ns = result["NS"]  # Get the value of NS from the data
             parsed_section = process_func(
@@ -224,7 +225,7 @@ def parse_BSTAC_file(lines):
             result[name] = parsed_section
             line_counter += ns
         elif repeat == "end_of_file":
-            parsed_section = process_func(lines[line_counter:], result["JW"], nc)
+            parsed_section = process_func(lines[line_counter:], result["MODE"], nc)
             result[name] = parsed_section
 
     return result
