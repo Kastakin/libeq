@@ -35,14 +35,14 @@ def test_distribution_variable(solver_data):
         solver_data, mode="distribution"
     )
 
-    assert outsource(result.tobytes()) == snapshot(external("cde6a903f223*.bin"))
-    assert outsource(log_beta.tobytes()) == snapshot(external("50758667cf01*.bin"))
-    assert outsource(log_ks.tobytes()) == snapshot(external("e88c28c54fe2*.bin"))
+    assert outsource(result.tobytes()) == snapshot(external("e98bdbc4ab7f*.bin"))
+    assert outsource(log_beta.tobytes()) == snapshot(external("6e4ffec14eb2*.bin"))
+    assert outsource(log_ks.tobytes()) == snapshot(external("b4781f4b85b1*.bin"))
     assert outsource(saturation_index.tobytes()) == snapshot(
-        external("9f2f18e3404d*.bin")
+        external("68388a10667e*.bin")
     )
     assert outsource(total_concentration.tobytes()) == snapshot(
-        external("6b62d3d7c290*.bin")
+        external("bc1e07eaed78*.bin")
     )
 
 

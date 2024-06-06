@@ -35,11 +35,11 @@ def test_titration_variable(solver_data):
         solver_data, mode="titration"
     )
 
-    assert outsource(result.tobytes()) == snapshot(external("003b7ceed714*.bin"))
-    assert outsource(log_beta.tobytes()) == snapshot(external("758513fd1496*.bin"))
-    assert outsource(log_ks.tobytes()) == snapshot(external("08b8a2ed2e9d*.bin"))
+    assert outsource(result.tobytes()) == snapshot(external("383cd7bd6892*.bin"))
+    assert outsource(log_beta.tobytes()) == snapshot(external("0f794d0393dc*.bin"))
+    assert outsource(log_ks.tobytes()) == snapshot(external("a348013df9fb*.bin"))
     assert outsource(saturation_index.tobytes()) == snapshot(
-        external("46b0c2e4dccd*.bin")
+        external("8eecb627a156*.bin")
     )
     assert outsource(total_concentration.tobytes()) == snapshot(
         external("0b166a60f644*.bin")
