@@ -36,6 +36,11 @@ env/
 __pycache__/
 .pytest_cache/
 
+# Coverage reports
+htmlcov/
+.coverage
+coverage.*
+
 # Mkdocs cache and results
 .cache/
 /site/
