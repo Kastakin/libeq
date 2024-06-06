@@ -1,7 +1,8 @@
+from .utils import species_concentration  # noqa: F401
+from .errors import uncertanties  # noqa: F401
 from .data_structure import SolverData  # noqa: F401
 from .optimizers import PotentiometryOptimizer  # noqa: F401
 from .solver import EqSolver  # noqa: F401
-from .utils import species_concentration
 
 """
 libeq - A Python library for thermodynamic equilibrium calculations.
@@ -18,4 +19,10 @@ free components is also exposed: `species_concentration`.
 """
 
 # Define __all__ to control what gets imported when using `from libeq import *`
-__all__ = ["EqSolver", "PotentiometryOptimizer", "SolverData", "species_concentration"]
+__all__ = [
+    "EqSolver",
+    "PotentiometryOptimizer",
+    "SolverData",
+    "species_concentration",
+    "uncertanties",
+]

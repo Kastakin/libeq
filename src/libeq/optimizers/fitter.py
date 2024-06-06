@@ -103,11 +103,6 @@ def levenberg_marquardt(x0, y, f, free_conc, jacobian, weights, capping=None, **
 
         _report(iterations, x / 2.303, dx / 2.303, sigma)
 
-        x = new_x
-        concs = new_concs
-        prev_resid = resid
-        sigma_hist.append(sigma)
-
         if one_iter:
             break
 
@@ -134,7 +129,10 @@ def levenberg_marquardt(x0, y, f, free_conc, jacobian, weights, capping=None, **
             elif reduction_ratio > 0.75:
                 damping /= 2
 
-        print(damping)
+        x = new_x
+        concs = new_concs
+        prev_resid = resid
+        sigma_hist.append(sigma)
 
         iterations += 1
 

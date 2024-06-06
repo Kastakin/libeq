@@ -114,7 +114,6 @@ def PotentiometryOptimizer(data: SolverData):
     full_emf = np.concatenate(reduced_emf, axis=0).ravel()
     n_exp_points = full_emf.shape[0]
 
-    # weights = np.array(n_exp_points * [1.0 / n_exp_points])
     if data.potentiometry_options.weights == "constants":
         weights = np.ones(n_exp_points)
     elif data.potentiometry_options.weights == "calculated":
@@ -183,7 +182,7 @@ def PotentiometryOptimizer(data: SolverData):
         )
         outer_fixed_point_params["ionic_strength_dependence"] = False
 
-    x, concs, ret_extra = levenberg_marquardt(
+    x, concs, return_extra = levenberg_marquardt(
         np.fromiter(unravel(data.log_beta, beta_flags), dtype=float) * 2.303,
         full_emf,
         f_obj,
@@ -193,7 +192,11 @@ def PotentiometryOptimizer(data: SolverData):
         report=reporter,
     )
 
-    return x, concs, ret_extra
+    b_error, cor_matrix, cov_matrix = fit_final_calcs(
+        return_extra["jacobian"], return_extra["residuals"], return_extra["weights"]
+    )
+
+    return x, concs, b_error, cor_matrix, cov_matrix, return_extra
 
 
 def build_reduced_emf(emf, emf0, slope):
@@ -365,3 +368,46 @@ def ravel(x, y, flags):
                 yield val
             else:  # other: compute proportional value
                 yield x[i] * ref_val[f] / x[ref_index[f]]
+
+
+def covariance_fun(J, W, F):
+    """Compute covariance matrix.
+
+    Returns the covariance matrix :math:`CV = inv(J'.W.J)*MSE`
+    Where MSE is mean-square error :math:`MSE = (R'*R)/(N-p)`
+    where *R* are the residuals, *N* is the number of observations and
+    *p* is the number of coefficients estimated
+
+    Parameters:
+        J (:class:`numpy.ndarray`): the jacobian
+        W (:class:`numpy.ndarray`): the weights matrix
+        F (:class:`numpy.ndarray`): the residuals
+    Returns:
+        :class:`numpy.ndarray`: an (*p*, *p*)-sized array representing
+            the covariance matrix.
+    """
+    mse = np.sum(F * np.diag(W) * F) / (len(F) - J.shape[1])
+    temp = np.linalg.inv(np.dot(np.dot(J.T, W), J))
+    return temp * mse
+
+
+def fit_final_calcs(jacobian, resids, weights):
+    """Perform final calculations common to some routines.
+
+    Parameters:
+        jacobian (:class:`numpy.array`): the jacobian
+        resids (:class:`numpy.array`): the residuals
+        weights (:class:`numpy.array`): the weights
+    Returns:
+        * the error in beta
+        * the correlation matrix
+        * the covariance matrix
+    """
+    covariance = covariance_fun(jacobian, weights, resids)
+    cov_diag = np.diag(covariance)
+    error_B = np.sqrt(cov_diag) / np.log(10)
+    lenD = len(cov_diag)
+    correlation = covariance / np.sqrt(
+        np.dot(cov_diag.reshape((lenD, 1)), cov_diag.reshape((1, lenD)))
+    )
+    return error_B, correlation, covariance
