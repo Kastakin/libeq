@@ -14,7 +14,7 @@ from libeq.solver.solver_utils import (
 from .fitter import levenberg_marquardt
 
 
-def PotentiometryOptimizer(data: SolverData):
+def PotentiometryOptimizer(data: SolverData, reporter=None):
     def f_obj(c):
         """
         Given the concentrations of the components, calculate the objective function value.
@@ -81,7 +81,7 @@ def PotentiometryOptimizer(data: SolverData):
         dcdb = np.squeeze(np.linalg.solve(J, -B))
         return fhsel(dcdb[..., np.flatnonzero(beta_flags)]).T
 
-    def reporter(*args):
+    def text_reporter(*args):
         print(f"iteration n.{args[0]}")
         print("x", args[1])
         print("dx", args[2])
