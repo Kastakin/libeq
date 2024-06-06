@@ -1,7 +1,6 @@
 import pytest
 from inline_snapshot import snapshot, outsource
-from libeq.data_structure import SolverData
-from libeq import EqSolver
+from libeq import EqSolver, SolverData
 
 from inline_snapshot import external
 
