@@ -1,15 +1,29 @@
+import json
 from functools import cached_property
+from typing import Dict, List, Literal
+
 import numpy as np
 from pydantic import BaseModel, ConfigDict, computed_field
-from pydantic_numpy.typing import Np2DArrayInt8, Np1DArrayFp64
-import json
-from typing import Dict, List, Literal
+from pydantic_numpy.typing import Np1DArrayFp64, Np2DArrayFp64, Np2DArrayInt8
 
 from .parsers import parse_BSTAC_file
 
 
+def _assemble_species_names(components, stoichiometry):
+    species_names = ["" for _ in range(stoichiometry.shape[1])]
+    for i, row in enumerate(stoichiometry):
+        for j, value in enumerate(row):
+            if value < 0:
+                species_names[j] += f"(OH){np.abs(value) if value != -1 else ''}"
+            elif value > 0:
+                species_names[j] += f"({components[i]}){value if value != 1 else ''}"
+
+    return species_names
+
+
 class DistributionParameters(BaseModel):
     c0: Np1DArrayFp64 | None = None
+    c0_sigma: Np1DArrayFp64 | None = None
 
     initial_log: float | None = None
     final_log: float | None = None
@@ -20,7 +34,9 @@ class DistributionParameters(BaseModel):
 
 class TitrationParameters(BaseModel):
     c0: Np1DArrayFp64 | None = None
+    c0_sigma: Np1DArrayFp64 | None = None
     ct: Np1DArrayFp64 | None = None
+    ct_sigma: Np1DArrayFp64 | None = None
 
 
 class SimulationTitrationParameters(TitrationParameters):
@@ -60,7 +76,12 @@ class SolverData(BaseModel):
     stoichiometry: Np2DArrayInt8
     solid_stoichiometry: Np2DArrayInt8
     log_beta: Np1DArrayFp64
+    log_beta_sigma: Np1DArrayFp64 = np.array([])
+    log_beta_ref_dbh: Np2DArrayFp64 = np.empty((0, 2))
     log_ks: Np1DArrayFp64 = np.array([])
+    log_ks_sigma: Np1DArrayFp64 = np.array([])
+    log_ks_ref_dbh: Np2DArrayFp64 = np.empty((0, 2))
+
     charges: Np1DArrayFp64 = np.array([])
 
     ionic_strength_dependence: bool = False
@@ -106,9 +127,10 @@ class SolverData(BaseModel):
     @cached_property
     def dbh_values(self) -> Dict[str, Np1DArrayFp64]:
         result = dict()
-        for phase, iref, z, p in zip(
+        for phase, iref, per_species_cde, z, p in zip(
             ("species", "solids"),
             (self.reference_ionic_str_species, self.reference_ionic_str_solids),
+            (self.log_beta_ref_dbh, self.log_ks_ref_dbh),
             (self.z_star_species, self.z_star_solids),
             (self.p_star_species, self.p_star_solids),
         ):
@@ -121,23 +143,26 @@ class SolverData(BaseModel):
             dbh_values["edh"] = self.dbh_params[6] * p + self.dbh_params[7] * z
             dbh_values["fib"] = np.sqrt(iref) / (1 + self.dbh_params[1] * np.sqrt(iref))
 
+            not_zero_columns = np.where(np.any(per_species_cde != 0, axis=0))[0]
+            for i in not_zero_columns:
+                dbh_values["cdh"][i] = per_species_cde[0][i]
+                dbh_values["ddh"][i] = per_species_cde[1][i]
+                dbh_values["edh"][i] = per_species_cde[2][i]
+
             result[phase] = dbh_values
         return result
 
     @computed_field
     @cached_property
     def species_names(self) -> List[str]:
-        species_names = ["" for _ in range(self.ns)]
-        for i, row in enumerate(self.stoichiometry):
-            for j, value in enumerate(row):
-                if value < 0:
-                    species_names[j] += f"(OH){value if value != -1 else ''}"
-                elif value > 0:
-                    species_names[j] += (
-                        f"({self.components[i]}){value if value != 1 else ''}"
-                    )
+        return self.components + _assemble_species_names(
+            self.components, self.stoichiometry
+        )
 
-        return self.components + species_names
+    @computed_field
+    @cached_property
+    def solids_names(self) -> List[str]:
+        return _assemble_species_names(self.components, self.solid_stoichiometry)
 
     @computed_field
     @cached_property
@@ -250,6 +275,16 @@ class SolverData(BaseModel):
             ]
         )
         data["log_beta"] = np.array(list(pyes_data["speciesModel"]["LogB"].values()))
+        data["log_beta_sigma"] = np.array(
+            list(pyes_data["speciesModel"]["Sigma"].values())
+        )
+        data["log_beta_ref_dbh"] = np.vstack(
+            (
+                list(pyes_data["speciesModel"]["CGF"].values()),
+                list(pyes_data["speciesModel"]["DGF"].values()),
+                list(pyes_data["speciesModel"]["EGF"].values()),
+            )
+        )
 
         data["solid_stoichiometry"] = np.row_stack(
             [
@@ -260,21 +295,44 @@ class SolverData(BaseModel):
         data["log_ks"] = np.array(
             list(pyes_data["solidSpeciesModel"]["LogKs"].values())
         )
+        data["log_ks_sigma"] = np.array(
+            list(pyes_data["solidSpeciesModel"]["Sigma"].values())
+        )
+        data["log_ks_ref_dbh"] = np.vstack(
+            (
+                list(pyes_data["solidSpeciesModel"]["CGF"].values()),
+                list(pyes_data["solidSpeciesModel"]["DGF"].values()),
+                list(pyes_data["solidSpeciesModel"]["EGF"].values()),
+            )
+        )
 
         data["charges"] = np.array(list(pyes_data["compModel"]["Charge"].values()))
         data["ionic_strength_dependence"] = pyes_data["imode"] != 0
         data["reference_ionic_str_species"] = np.array(
-            [pyes_data["ris"] for _ in range(data["stoichiometry"].shape[1])]
+            list(pyes_data["speciesModel"]["Ref. Ionic Str."].values())
         )
+        data["reference_ionic_str_species"] = np.where(
+            data["reference_ionic_str_species"] == 0,
+            pyes_data["ris"],
+            data["reference_ionic_str_species"],
+        )
+
         data["reference_ionic_str_solids"] = np.array(
-            [pyes_data["ris"] for _ in range(data["solid_stoichiometry"].shape[1])]
+            list(pyes_data["solidSpeciesModel"]["Ref. Ionic Str."].values())
         )
+        data["reference_ionic_str_solids"] = np.where(
+            data["reference_ionic_str_solids"] == 0,
+            pyes_data["ris"],
+            data["reference_ionic_str_solids"],
+        )
+
         data["dbh_params"] = [
             pyes_data[name] for name in ["a", "b", "c0", "c1", "d0", "d1", "e0", "e1"]
         ]
 
         data["distribution_opts"] = DistributionParameters(
             c0=np.array(list(pyes_data["concModel"]["C0"].values())),
+            c0_sigma=np.array(list(pyes_data["concModel"]["Sigma C0"].values())),
             initial_log=pyes_data.get("initialLog"),
             final_log=pyes_data.get("finalLog"),
             log_increments=pyes_data.get("logInc"),
@@ -283,7 +341,9 @@ class SolverData(BaseModel):
 
         data["titration_opts"] = SimulationTitrationParameters(
             c0=np.array(list(pyes_data["concModel"]["C0"].values())),
+            c0_sigma=np.array(list(pyes_data["concModel"]["Sigma C0"].values())),
             ct=np.array(list(pyes_data["concModel"]["CT"].values())),
+            ct_sigma=np.array(list(pyes_data["concModel"]["Sigma CT"].values())),
             v0=pyes_data.get("v0"),
             v_increment=pyes_data.get("vinc"),
             n_add=pyes_data.get("nop"),

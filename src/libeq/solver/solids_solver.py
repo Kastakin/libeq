@@ -56,7 +56,7 @@ def solids_solver(
     final_saturation_index = np.empty_like(log_ks)
 
     all_saturation_index = _compute_saturation_index(
-        concentrations, log_ks, solid_stoichiometry
+        concentrations[:, : solid_stoichiometry.shape[0]], log_ks, solid_stoichiometry
     )
 
     all_indices = set(range(concentrations.shape[0]))
@@ -115,7 +115,7 @@ def solids_solver(
                 threshold=1e-10,
             )
             saturation_index = _compute_saturation_index(
-                c, point_log_ks, solid_stoichiometry
+                c[:, : solid_stoichiometry.shape[0]], point_log_ks, solid_stoichiometry
             )
 
         final_result[point] = c
@@ -200,8 +200,7 @@ def _compute_saturation_index(concentrations, log_ks, solid_stoichiometry):
     saturation_index : numpy.ndarray
         The saturation index of the solid phases.
     """
-    nf = solid_stoichiometry.shape[1]
-    nc = concentrations.shape[1] - nf
+    nc = concentrations.shape[1]
     saturation_index = 10 ** (
         np.log10(concentrations[:, :nc]) @ solid_stoichiometry - log_ks
     )

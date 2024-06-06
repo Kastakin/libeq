@@ -30,9 +30,9 @@ def outer_fixed_point(
         Flag indicating whether to consider ionic strength dependence, by default False.
     charges : numpy.ndarray or None, optional
         Array of charges for each species, by default None.
-    ref_ionic_strength_species : numpy.ndarray or None, optional
+    reference_ionic_str_species : numpy.ndarray or None, optional
         Array of reference ionic strength for each species, by default None.
-    ref_ionic_strength_solids : numpy.ndarray or None, optional
+    reference_ionic_str_solids : numpy.ndarray or None, optional
         Array of reference ionic strength for each solid, by default None.
     dbh_values : dict[str, dict[str, numpy.ndarray]] or None, optional
         Dictionary containing the debye huckel parameters used for the species and solids, by default None.
