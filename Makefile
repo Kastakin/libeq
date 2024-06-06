@@ -50,6 +50,10 @@ clean:
 docs:
 	poetry run mkdocs build --strict
 
+.PHONY: test  ## Run tests and coverage
+test:
+	poetry run pytest --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing tests
+
 .PHONY: help  ## Display this message
 help:
 	@grep -E \
