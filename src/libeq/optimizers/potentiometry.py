@@ -90,8 +90,8 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
 
     # Load the n titrations with their potential from the data file
     emf = [t.emf for t in data.potentiometry_options.titrations]
-    emf0 = (t.e0 for t in data.potentiometry_options.titrations)
-    slope = (t.slope for t in data.potentiometry_options.titrations)
+    emf0 = [t.e0 for t in data.potentiometry_options.titrations]
+    slope = [t.slope for t in data.potentiometry_options.titrations]
     v_add = [t.v_add for t in data.potentiometry_options.titrations]
 
     ll, ul = data.potentiometry_options.px_range
@@ -192,6 +192,22 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         report=reporter,
     )
 
+    return_extra["slices"] = slices
+
+    return_extra["read_potential"] = emf
+
+    reduced_calculated_emf = f_obj(concs)
+    ix_ranges = list(zip(slices, slices[1:] + [concs.shape[0]]))[:-1]
+    calculated_potential = []
+    residuals_potential = []
+    for counter, (i1, i2) in enumerate(ix_ranges):
+        calculated_potential.append(
+            rebuild_emf(reduced_calculated_emf[i1:i2], emf0[counter], slope[counter])
+        )
+        residuals_potential.append(emf - calculated_potential[-1])
+    return_extra["calculated_potential"] = calculated_potential
+    return_extra["residuals_potential"] = residuals_potential
+
     b_error, cor_matrix, cov_matrix = fit_final_calcs(
         return_extra["jacobian"], return_extra["residuals"], return_extra["weights"]
     )
@@ -219,6 +235,28 @@ def build_reduced_emf(emf, emf0, slope):
 
     """
     return (emf - emf0) / (slope / 2.303)
+
+
+def rebuild_emf(remf, emf0, slope):
+    """
+    Reuild the original emf from the reduced emf, emf0, and slope values.
+
+    Parameters:
+    -------
+    remf : numpy.ndarray
+        The reduced emf values.
+    emf0 : float
+        The standard emf value.
+    slope : float
+        The slope.
+
+    Returns:
+    -------
+    emf : numpy.ndarray
+        The emf values.
+
+    """
+    return (remf * (slope / 2.303)) + emf0
 
 
 def compute_weights(emf, v_add, e_sigma, v_sigma):
