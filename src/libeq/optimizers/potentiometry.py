@@ -212,6 +212,9 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         return_extra["jacobian"], return_extra["residuals"], return_extra["weights"]
     )
 
+    # For consistency return only the free concentrations
+    concs = concs[:, : data.nc + data.nf]
+
     return x, concs, b_error, cor_matrix, cov_matrix, return_extra
 
 
