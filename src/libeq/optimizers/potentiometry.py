@@ -89,12 +89,12 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         print("----------------\n")
 
     # Load the n titrations with their potential from the data file
-    emf = [t.emf for t in data.potentiometry_options.titrations]
-    emf0 = [t.e0 for t in data.potentiometry_options.titrations]
-    slope = [t.slope for t in data.potentiometry_options.titrations]
-    v_add = [t.v_add for t in data.potentiometry_options.titrations]
+    emf = [t.emf for t in data.potentiometry_opts.titrations]
+    emf0 = [t.e0 for t in data.potentiometry_opts.titrations]
+    slope = [t.slope for t in data.potentiometry_opts.titrations]
+    v_add = [t.v_add for t in data.potentiometry_opts.titrations]
 
-    ll, ul = data.potentiometry_options.px_range
+    ll, ul = data.potentiometry_opts.px_range
 
     reduced_emf = [
         build_reduced_emf(emf_, emf0_, slope_)
@@ -114,11 +114,11 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
     full_emf = np.concatenate(reduced_emf, axis=0).ravel()
     n_exp_points = full_emf.shape[0]
 
-    if data.potentiometry_options.weights == "constants":
+    if data.potentiometry_opts.weights == "constants":
         weights = np.ones(n_exp_points)
-    elif data.potentiometry_options.weights == "calculated":
-        e0_sigma = [t.e0_sigma for t in data.potentiometry_options.titrations]
-        v0_sigma = [t.v0_sigma for t in data.potentiometry_options.titrations]
+    elif data.potentiometry_opts.weights == "calculated":
+        e0_sigma = [t.e0_sigma for t in data.potentiometry_opts.titrations]
+        v0_sigma = [t.v0_sigma for t in data.potentiometry_opts.titrations]
 
         weights = np.concatenate(
             [
@@ -130,16 +130,16 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
             axis=0,
         ).ravel()
 
-    elif data.potentiometry_options.weights == "given":
+    elif data.potentiometry_opts.weights == "given":
         raise NotImplementedError("User given weights are not implemented yet.")
 
     slices = list(accumulate([0] + [s.shape[0] for s in reduced_emf]))
     electro_active_components = [
-        t.electro_active_compoment for t in data.potentiometry_options.titrations
+        t.electro_active_compoment for t in data.potentiometry_opts.titrations
     ]
     fhsel = partial(hselect, hindices=electro_active_components, slices=slices[:-1])
 
-    beta_flags = np.array(data.potentiometry_options.beta_flags).astype(int)
+    beta_flags = np.array(data.potentiometry_opts.beta_flags).astype(int)
     beta_flags = np.where(beta_flags == -1, 0, beta_flags)
 
     (
@@ -154,7 +154,7 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
     total_concentration = np.vstack(
         [
             _titration_total_c(t, i)
-            for t, i in zip(data.potentiometry_options.titrations, idx_to_keep)
+            for t, i in zip(data.potentiometry_opts.titrations, idx_to_keep)
         ]
     )
 

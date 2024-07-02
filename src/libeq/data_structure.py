@@ -1,10 +1,12 @@
 import json
 from functools import cached_property
-from typing import Dict, List, Literal
+from typing import Any, Dict, List, Literal
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, computed_field
 from pydantic_numpy.typing import Np1DArrayFp64, Np2DArrayFp64, Np2DArrayInt8
+
+from .utils import NumpyEncoder
 
 from .parsers import parse_BSTAC_file
 
@@ -70,7 +72,7 @@ class SolverData(BaseModel):
 
     distribution_opts: DistributionParameters = DistributionParameters()
     titration_opts: SimulationTitrationParameters = SimulationTitrationParameters()
-    potentiometry_options: PotentiometryOptions = PotentiometryOptions()
+    potentiometry_opts: PotentiometryOptions = PotentiometryOptions()
 
     components: List[str]
     stoichiometry: Np2DArrayInt8
@@ -88,6 +90,22 @@ class SolverData(BaseModel):
     reference_ionic_str_species: Np1DArrayFp64 | float = 0
     reference_ionic_str_solids: Np1DArrayFp64 | float = 0
     dbh_params: Np1DArrayFp64 = np.zeros(8)
+
+    # TODO: Add more stringent validation for allowed modes
+    @computed_field
+    @cached_property
+    def distribution_ready(self) -> bool:
+        return self.distribution_opts.c0 is not None
+
+    @computed_field
+    @cached_property
+    def titration_ready(self) -> bool:
+        return self.titration_opts.c0 is not None
+
+    @computed_field
+    @cached_property
+    def potentiometry_ready(self) -> bool:
+        return len(self.potentiometry_opts.titrations) > 0
 
     @computed_field
     @cached_property
@@ -250,7 +268,7 @@ class SolverData(BaseModel):
             case _:
                 raise ValueError("Invalid MODE value")
 
-        data["potentiometry_options"] = PotentiometryOptions(
+        data["potentiometry_opts"] = PotentiometryOptions(
             titrations=titration_options,
             weights=weights,
             px_range=[parsed_data["PHI"], parsed_data["PHF"]],
@@ -331,21 +349,225 @@ class SolverData(BaseModel):
         ]
 
         data["distribution_opts"] = DistributionParameters(
-            c0=np.array(list(pyes_data["concModel"]["C0"].values())),
-            c0_sigma=np.array(list(pyes_data["concModel"]["Sigma C0"].values())),
-            initial_log=pyes_data.get("initialLog"),
-            final_log=pyes_data.get("finalLog"),
-            log_increments=pyes_data.get("logInc"),
-            independent_component=pyes_data.get("ind_comp"),
+            c0=np.array(list(pyes_data.get("concModel", {}).get("C0", {}).values())),
+            c0_sigma=np.array(
+                list(pyes_data.get("concModel", {}).get("Sigma C0", {}).values())
+            ),
+            initial_log=pyes_data.get("initialLog", 0.0),
+            final_log=pyes_data.get("finalLog", 0.0),
+            log_increments=pyes_data.get("logInc", 0.0),
+            independent_component=pyes_data.get("ind_comp", 0),
         )
 
         data["titration_opts"] = SimulationTitrationParameters(
-            c0=np.array(list(pyes_data["concModel"]["C0"].values())),
-            c0_sigma=np.array(list(pyes_data["concModel"]["Sigma C0"].values())),
-            ct=np.array(list(pyes_data["concModel"]["CT"].values())),
-            ct_sigma=np.array(list(pyes_data["concModel"]["Sigma CT"].values())),
-            v0=pyes_data.get("v0"),
-            v_increment=pyes_data.get("vinc"),
-            n_add=pyes_data.get("nop"),
+            c0=np.array(list(pyes_data.get("concModel", {}).get("C0", {}).values())),
+            c0_sigma=np.array(
+                list(pyes_data.get("concModel", {}).get("Sigma C0", {}).values())
+            ),
+            ct=np.array(list(pyes_data.get("concModel", {}).get("CT", {}).values())),
+            ct_sigma=np.array(
+                list(pyes_data.get("concModel", {}).get("Sigma CT", {}).values())
+            ),
+            v0=pyes_data.get("v0", 0.0),
+            v_increment=pyes_data.get("vinc", 0.0),
+            n_add=pyes_data.get("nop", 0),
+        )
+
+        potentiometry_data = pyes_data["potentiometry_data"]
+        titrations = []
+        for t in potentiometry_data["titrations"]:
+            titrations.append(
+                PotentiometryTitrationsParameters(
+                    c0=np.array(list(t.get("concView", {}).get("C0", {}).values())),
+                    ct=np.array(list(t.get("concView", {}).get("CT", {}).values())),
+                    electro_active_compoment=t["electroActiveComponent"],
+                    e0=t["e0"],
+                    e0_sigma=t["eSigma"],
+                    slope=t["slope"],
+                    v0=t["initialVolume"],
+                    v0_sigma=t["vSigma"],
+                    v_add=np.array(list(t["titrationView"]["0"].values())),
+                    emf=np.array(list(t["titrationView"]["1"].values())),
+                )
+            )
+        data["potentiometry_opts"] = PotentiometryOptions(
+            titrations=titrations,
+            # px_range=[pyes_data.get("phi"), pyes_data.get("phf")],
+            weights=potentiometry_data["weightsMode"],
+            beta_flags=[int(v) for v in potentiometry_data["beta_refine_flags"]],
+            conc_flags=[],
+            pot_flags=[],
         )
         return cls(**data)
+
+    def to_pyes(self, format: Literal["dict", "json"] = "dict") -> dict[str, Any] | str:
+        if isinstance(self.reference_ionic_str_species, (float, int)):
+            species_ref_ionic_str = {
+                i: self.reference_ionic_str_species for i in range(self.ns)
+            }
+        else:
+            species_ref_ionic_str = {
+                i: ris for i, ris in enumerate(self.reference_ionic_str_species)
+            }
+        soluble_model = {
+            f"{comp_name}": {i: v for i, v in enumerate(row)}
+            for comp_name, row in zip(self.components, self.stoichiometry)
+        }
+
+        if isinstance(self.reference_ionic_str_solids, (float, int)):
+            solid_ref_ionic_str = {
+                i: self.reference_ionic_str_solids for i in range(self.nf)
+            }
+        else:
+            solid_ref_ionic_str = {
+                i: ris for i, ris in enumerate(self.reference_ionic_str_solids)
+            }
+        solid_model = {
+            f"{comp_name}": {i: v for i, v in enumerate(row)}
+            for comp_name, row in zip(self.components, self.solid_stoichiometry)
+        }
+
+        if self.potentiometry_ready:
+            if self.potentiometry_opts.weights == "constants":
+                weights_mode = 0
+            elif self.potentiometry_opts.weights == "calculated":
+                weights_mode = 1
+            elif self.potentiometry_opts.weights == "given":
+                weights_mode = 2
+
+            potentiometry_section = {
+                "potentiometry_data": {
+                    "weightsMode": weights_mode,
+                    "beta_refine_flags": [
+                        bool(f) for f in self.potentiometry_opts.beta_flags
+                    ],
+                    "titrations": [
+                        {
+                            "concView": {
+                                "C0": {i: c for i, c in zip(self.components, t.c0)},
+                                "CT": {i: c for i, c in zip(self.components, t.ct)},
+                                "Sigma C0": {
+                                    i: 0 for i, _ in zip(self.components, t.c0)
+                                },
+                                "Sigma CT": {
+                                    i: 0 for i, _ in zip(self.components, t.ct)
+                                },
+                            },
+                            "electroActiveComponent": t.electro_active_compoment,
+                            "e0": t.e0,
+                            "eSigma": t.e0_sigma,
+                            "slope": t.slope,
+                            "initialVolume": t.v0,
+                            "vSigma": t.v0_sigma,
+                            "titrationView": {
+                                "0": {i: v for i, v in enumerate(t.v_add)},
+                                "1": {i: v for i, v in enumerate(t.emf)},
+                                "2": {i: 0 for i, _ in enumerate(t.emf)},
+                            },
+                        }
+                        for t in self.potentiometry_opts.titrations
+                    ],
+                },
+            }
+        else:
+            potentiometry_section = {}
+
+        if self.distribution_ready:
+            distribution_section = {
+                "ind_comp": self.distribution_opts.independent_component,
+                "initialLog": self.distribution_opts.initial_log,
+                "finalLog": self.distribution_opts.final_log,
+                "logInc": self.distribution_opts.log_increments,
+            }
+        else:
+            distribution_section = {}
+
+        if self.titration_ready:
+            titration_section = {
+                "v0": self.titration_opts.v0,
+                "initv": self.titration_opts.v0,
+                "vinc": self.titration_opts.v_increment,
+                "nop": self.titration_opts.n_add,
+            }
+        else:
+            titration_section = {}
+
+        if self.titration_ready or self.distribution_ready:
+            conc_section = {
+                "concModel": {
+                    "C0": {i: c0 for i, c0 in enumerate(self.distribution_opts.c0)},
+                    "Sigma C0": {
+                        i: sigma
+                        for i, sigma in enumerate(self.distribution_opts.c0_sigma)
+                    },
+                    "CT": {i: ct for i, ct in enumerate(self.titration_opts.ct)},
+                    "Sigma CT": {
+                        i: sigma for i, sigma in enumerate(self.titration_opts.ct_sigma)
+                    },
+                },
+            }
+        else:
+            conc_section = {}
+
+        if self.log_beta_sigma.size == 0:
+            self.log_beta_sigma = np.zeros(self.ns)
+
+        if self.log_ks_sigma.size == 0:
+            self.log_ks_sigma = np.zeros(self.nf)
+
+        data = {
+            "check": "PyES project file --- DO NOT MODIFY THIS LINE!",
+            "nc": self.nc,
+            "ns": self.ns,
+            "np": self.nf,
+            "emode": True,
+            "imode": 1 if self.ionic_strength_dependence else 0,
+            "ris": 0.0,
+            "a": self.dbh_params[0],
+            "b": self.dbh_params[1],
+            "c0": self.dbh_params[2],
+            "c1": self.dbh_params[3],
+            "d0": self.dbh_params[4],
+            "d1": self.dbh_params[5],
+            "e0": self.dbh_params[6],
+            "e1": self.dbh_params[7],
+            "dmode": 0,
+            "compModel": {
+                "Name": {i: name for i, name in enumerate(self.components)},
+                "Charge": {i: charge for i, charge in enumerate(self.charges)},
+            },
+            "speciesModel": {
+                "Ignored": {i: False for i in range(self.ns)},
+                "Name": {
+                    i: name for i, name in enumerate(self.species_names[self.nc :])
+                },
+                "LogB": {i: log_b for i, log_b in enumerate(self.log_beta)},
+                "Sigma": {i: sigma for i, sigma in enumerate(self.log_beta_sigma)},
+                "Ref. Ionic Str.": species_ref_ionic_str,
+                "CGF": {i: c for i, c in enumerate(self.dbh_values["species"]["cdh"])},
+                "DGF": {i: d for i, d in enumerate(self.dbh_values["species"]["ddh"])},
+                "EGF": {i: e for i, e in enumerate(self.dbh_values["species"]["edh"])},
+                **soluble_model,
+                "Ref. Comp.": {i: self.components[0] for i in range(self.ns)},
+            },
+            "solidSpeciesModel": {
+                "Ignored": {i: False for i in range(self.nf)},
+                "Name": {i: name for i, name in enumerate(self.solids_names)},
+                "LogKs": {i: log_ks for i, log_ks in enumerate(self.log_ks)},
+                "Sigma": {i: sigma for i, sigma in enumerate(self.log_ks_sigma)},
+                "Ref. Ionic Str.": solid_ref_ionic_str,
+                "CGF": {i: c for i, c in enumerate(self.dbh_values["solids"]["cdh"])},
+                "DGF": {i: d for i, d in enumerate(self.dbh_values["solids"]["ddh"])},
+                "EGF": {i: e for i, e in enumerate(self.dbh_values["solids"]["edh"])},
+                **solid_model,
+                "Ref. Comp.": {i: self.components[0] for i in range(self.nf)},
+            },
+            **conc_section,
+            **titration_section,
+            **distribution_section,
+            **potentiometry_section,
+        }
+
+        return (
+            data if format == "dict" else json.dumps(data, indent=4, cls=NumpyEncoder)
+        )
