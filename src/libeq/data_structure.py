@@ -399,8 +399,12 @@ class SolverData(BaseModel):
                     slope=t["slope"],
                     v0=t["initialVolume"],
                     v0_sigma=t["vSigma"],
-                    v_add=np.array(list(t["titrationView"]["0"].values())),
-                    emf=np.array(list(t["titrationView"]["1"].values())),
+                    v_add=np.array(
+                        list(t.get("titrationView", {}).get("0", {}).values())
+                    ),
+                    emf=np.array(
+                        list(t.get("titrationView", {}).get("1", {}).values())
+                    ),
                 )
             )
         data["potentiometry_opts"] = PotentiometryOptions(
