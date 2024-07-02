@@ -192,6 +192,7 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         report=reporter,
     )
 
+    return_extra["total_concentration"] = total_concentration
     return_extra["slices"] = slices
 
     return_extra["read_potential"] = emf
