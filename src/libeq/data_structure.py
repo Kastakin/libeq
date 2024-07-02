@@ -375,11 +375,24 @@ class SolverData(BaseModel):
 
         potentiometry_data = pyes_data["potentiometry_data"]
         titrations = []
+        if potentiometry_data["weightsMode"] == 0:
+            weights = "constants"
+        elif potentiometry_data["weightsMode"] == 1:
+            weights = "calculated"
+        elif potentiometry_data["weightsMode"] == 2:
+            weights = "given"
+
         for t in potentiometry_data["titrations"]:
             titrations.append(
                 PotentiometryTitrationsParameters(
                     c0=np.array(list(t.get("concView", {}).get("C0", {}).values())),
                     ct=np.array(list(t.get("concView", {}).get("CT", {}).values())),
+                    c0_sigma=np.array(
+                        list(t.get("concView", {}).get("Sigma C0", {}).values())
+                    ),
+                    ct_sigma=np.array(
+                        list(t.get("concView", {}).get("Sigma CT", {}).values())
+                    ),
                     electro_active_compoment=t["electroActiveComponent"],
                     e0=t["e0"],
                     e0_sigma=t["eSigma"],
@@ -393,11 +406,15 @@ class SolverData(BaseModel):
         data["potentiometry_opts"] = PotentiometryOptions(
             titrations=titrations,
             # px_range=[pyes_data.get("phi"), pyes_data.get("phf")],
-            weights=potentiometry_data["weightsMode"],
+            weights=weights,
             beta_flags=[int(v) for v in potentiometry_data["beta_refine_flags"]],
             conc_flags=[],
             pot_flags=[],
         )
+        data["potentiometry_opts"].conc_flags = [
+            "constant" if v == 0 else "calculated" if v == 1 else "given"
+            for v in data["potentiometry_opts"].conc_flags
+        ]
         return cls(**data)
 
     def to_pyes(self, format: Literal["dict", "json"] = "dict") -> dict[str, Any] | str:

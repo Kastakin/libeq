@@ -204,7 +204,7 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         calculated_potential.append(
             rebuild_emf(reduced_calculated_emf[i1:i2], emf0[counter], slope[counter])
         )
-        residuals_potential.append(emf - calculated_potential[-1])
+        residuals_potential.append(emf[counter] - calculated_potential[counter])
     return_extra["calculated_potential"] = calculated_potential
     return_extra["residuals_potential"] = residuals_potential
 
