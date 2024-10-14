@@ -481,9 +481,10 @@ class SolverData(BaseModel):
                             "initialVolume": t.v0,
                             "vSigma": t.v0_sigma,
                             "titrationView": {
-                                "0": {i: v for i, v in enumerate(t.v_add)},
-                                "1": {i: v for i, v in enumerate(t.emf)},
-                                "2": {i: 0 for i, _ in enumerate(t.emf)},
+                                "0": {i: False for i, _ in enumerate(t.v_add)},
+                                "1": {i: v for i, v in enumerate(t.v_add)},
+                                "2": {i: v for i, v in enumerate(t.emf)},
+                                "3": {i: 0 for i, _ in enumerate(t.emf)},
                             },
                         }
                         for t in self.potentiometry_opts.titrations
