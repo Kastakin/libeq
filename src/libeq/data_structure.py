@@ -485,6 +485,7 @@ class SolverData(BaseModel):
                                 "1": {i: v for i, v in enumerate(t.v_add)},
                                 "2": {i: v for i, v in enumerate(t.emf)},
                                 "3": {i: 0 for i, _ in enumerate(t.emf)},
+                                "pX": {i: 0 for i, _ in enumerate(t.emf)},
                             },
                         }
                         for t in self.potentiometry_opts.titrations
