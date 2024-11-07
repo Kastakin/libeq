@@ -81,9 +81,9 @@ def levenberg_marquardt(x0, y, f, free_conc, jacobian, weights, capping=None, **
     sigma = fit_sigma(resid, weights, n_points, n_vars)
     while True:
         J = jacobian(concs)
-        M = np.dot(np.dot(J.T, W), J)
+        M = np.atleast_2d(np.dot(np.dot(J.T, W), J))
         D = np.diag(np.diag(M))
-        V = np.dot(np.dot(J.T, W), resid)
+        V = np.atleast_1d(np.dot(np.dot(J.T, W), resid))
 
         try:
             dx = np.linalg.solve(M + damping * D, V)

@@ -428,8 +428,9 @@ def covariance_fun(J, W, F):
         :class:`numpy.ndarray`: an (*p*, *p*)-sized array representing
             the covariance matrix.
     """
-    mse = np.sum(F * np.diag(W) * F) / (len(F) - J.shape[1])
-    temp = np.linalg.inv(np.dot(np.dot(J.T, W), J))
+    num_params = J.shape[1] if J.ndim == 2 else 1
+    mse = np.sum(F * np.diag(W) * F) / (len(F) - num_params)
+    temp = np.linalg.inv(np.atleast_2d(np.dot(np.dot(J.T, W), J)))
     return temp * mse
 
 
