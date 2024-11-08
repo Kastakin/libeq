@@ -1,6 +1,9 @@
+import warnings
+
 import numpy as np
 from numpy.typing import NDArray
 
+from libeq.excepts import DivergedIonicStrengthWarning
 from libeq.utils import species_concentration
 
 
@@ -121,6 +124,10 @@ def outer_fixed_point(
 
             result = concentration
             iterations = 0
+            previous_convergence = np.inf
+
+            best_log_beta = log_beta
+            best_log_ks = log_ks
             while True:
                 iterations += 1
                 # Call the decorated function
@@ -156,12 +163,28 @@ def outer_fixed_point(
                     og_log_ks, ionic, reference_ionic_str_solids, dbh_values["solids"]
                 )
 
-                if _check_outer_point_convergence(
-                    log_beta, old_log_beta, log_ks, old_log_ks
-                ):
+                converged, previous_convergence, is_best = (
+                    _check_outer_point_convergence(
+                        log_beta, old_log_beta, log_ks, old_log_ks, previous_convergence
+                    )
+                )
+
+                if converged:
                     # print(func.__name__)
                     # print(f"Outer converged in {iterations} iterations")
-                    # print("------------------------")
+                    break
+                elif is_best:
+                    best_log_beta = log_beta
+                    best_log_ks = log_ks
+
+                if iterations > 1000 or np.isnan(previous_convergence):
+                    warning = DivergedIonicStrengthWarning(
+                        msg="Divergence in outer fixed point iteration",
+                        last_value=ionic,
+                    )
+                    warnings.warn(warning)
+                    old_log_beta = best_log_beta
+                    old_log_ks = best_log_ks
                     break
             return result, old_log_beta, old_log_ks
 
@@ -229,7 +252,16 @@ def _update_solubility_products(log_ks, ionic_strength, ref_ionic_strength, dbh_
     )
 
 
-def _check_outer_point_convergence(log_beta, old_log_beta, log_ks, old_log_ks):
-    return np.all((np.abs(log_beta - old_log_beta) < 1e-4)) and np.all(
-        np.abs(log_ks - old_log_ks) < 1e-4
-    )
+def _check_outer_point_convergence(
+    log_beta, old_log_beta, log_ks, old_log_ks, previous_convergence
+):
+    soluble_diff = np.abs(log_beta - old_log_beta)
+    solid_diff = np.abs(log_ks - old_log_ks)
+    convergence = soluble_diff.mean()
+    if solid_diff.size > 0:
+        convergence += solid_diff.mean()
+
+    best_result = previous_convergence > convergence
+
+    converged = np.all(soluble_diff < 1e-4) and np.all(solid_diff < 1e-4)
+    return converged, convergence, best_result

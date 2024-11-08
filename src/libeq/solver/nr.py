@@ -132,7 +132,6 @@ def newton_raphson(
         list(set(range(n_components, n_components + n_solids)) - set(solids_idx)),
         dtype=int,
     )
-
     # copy x0 so that it is not modified outside this function.
     x = np.delete(np.copy(x0), solids_to_remove, axis=-1)
     solid_stoichiometry = np.delete(
@@ -157,14 +156,15 @@ def newton_raphson(
             solid_stoichiometry,
             total_concentration,
         )
+
         J = jacobian(_c, stoichiometry, solid_stoichiometry)
 
         if np.any(np.isnan(J)):
             _panic_save()
-            msg2 = f"could not calculate jacobian (iteration {iterations})"
+            msg2 = f"could not calculate jacobian (iteration {iterations + 1})"
             raise FailedCalculateConcentrations(msg2, x)
         if np.any(np.isnan(F)):
-            msg2 = f"could not calculate residuals (iteration {iterations})"
+            msg2 = f"could not calculate residuals (iteration {iterations + 1})"
             raise FailedCalculateConcentrations(msg2, x)
 
         # FIXME This should be deleted when debug is not necessary
