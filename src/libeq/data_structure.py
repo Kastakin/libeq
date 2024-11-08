@@ -400,10 +400,10 @@ class SolverData(BaseModel):
                     v0=t["initialVolume"],
                     v0_sigma=t["vSigma"],
                     v_add=np.array(
-                        list(t.get("titrationView", {}).get("0", {}).values())
+                        list(t.get("titrationView", {}).get("1", {}).values())
                     ),
                     emf=np.array(
-                        list(t.get("titrationView", {}).get("1", {}).values())
+                        list(t.get("titrationView", {}).get("2", {}).values())
                     ),
                 )
             )
