@@ -1,4 +1,5 @@
 import numpy as np
+
 from libeq.excepts import TooManyIterations
 
 
@@ -70,7 +71,7 @@ def levenberg_marquardt(x0, y, f, free_conc, jacobian, weights, capping=None, **
     # assert W.shape == (n_points, n_points)
 
     x = np.copy(x0)
-    concs = free_conc(x)
+    concs = free_conc(x, iterations)
     # assert len(concs) == n_points
     y_calc = f(concs)
     # assert y_calc.shape == y.shape
@@ -92,7 +93,7 @@ def levenberg_marquardt(x0, y, f, free_conc, jacobian, weights, capping=None, **
             continue
 
         new_x = fcapping(x, dx)
-        new_concs = free_conc(new_x)
+        new_concs = free_conc(new_x, iterations)
         y_calc = f(new_concs)
         resid = y - y_calc
 

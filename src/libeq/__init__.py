@@ -1,8 +1,8 @@
-from .utils import species_concentration  # noqa: F401
-from .errors import uncertanties  # noqa: F401
 from .data_structure import SolverData  # noqa: F401
+from .errors import uncertanties  # noqa: F401
 from .optimizers import PotentiometryOptimizer  # noqa: F401
 from .solver import EqSolver  # noqa: F401
+from .utils import species_concentration  # noqa: F401
 
 """
 libeq - A Python library for thermodynamic equilibrium calculations.

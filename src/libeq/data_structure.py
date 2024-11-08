@@ -6,9 +6,8 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, computed_field
 from pydantic_numpy.typing import Np1DArrayFp64, Np2DArrayFp64, Np2DArrayInt8
 
-from .utils import NumpyEncoder
-
 from .parsers import parse_BSTAC_file
+from .utils import NumpyEncoder
 
 
 def _assemble_species_names(components, stoichiometry):

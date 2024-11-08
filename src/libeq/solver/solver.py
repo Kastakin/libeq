@@ -4,8 +4,8 @@ import numpy as np
 
 from libeq.data_structure import SolverData
 from libeq.outer_fixed_point import outer_fixed_point
-from ..utils import species_concentration
 
+from ..utils import species_concentration
 from .damping import pcf
 from .nr import newton_raphson
 from .solids_solver import solids_solver

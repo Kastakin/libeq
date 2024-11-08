@@ -4,6 +4,7 @@ from itertools import accumulate
 import numpy as np
 
 from libeq.data_structure import SolverData
+from libeq.excepts import FailedCalculateConcentrations, TooManyIterations
 from libeq.solver import solve_equilibrium_equations
 from libeq.solver.solver_utils import (
     _assemble_outer_fixed_point_params,
@@ -34,22 +35,33 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         calc_remf = np.log(electroactive)
         return np.ravel(calc_remf)
 
-    def free_conc(updated_beta):
+    def free_conc(updated_beta, iterations):
         nonlocal _initial_guess
         incoming_beta = updated_beta / 2.303
         gen = ravel(data.log_beta, incoming_beta, beta_flags)
         log_beta = np.fromiter(gen, dtype=float)
         # Solve the system of equations
-        c, *_ = solve_equilibrium_equations(
-            stoichiometry=stoichiometry,
-            solid_stoichiometry=solid_stoichiometry,
-            original_log_beta=log_beta,
-            original_log_ks=original_log_ks,
-            total_concentration=total_concentration,
-            outer_fiexd_point_params=outer_fixed_point_params,
-            initial_guess=_initial_guess,
-            full=True,
-        )
+        try:
+            c, *_ = solve_equilibrium_equations(
+                stoichiometry=stoichiometry,
+                solid_stoichiometry=solid_stoichiometry,
+                original_log_beta=log_beta,
+                original_log_ks=original_log_ks,
+                total_concentration=total_concentration,
+                outer_fiexd_point_params=outer_fixed_point_params,
+                initial_guess=_initial_guess,
+                full=True,
+            )
+        except FailedCalculateConcentrations as e:
+            msg = f"Error in calculating concentrations in iteration n.{iterations}\n\n"
+            e.msg = msg + e.msg
+            e.last_value = log_beta
+            raise e
+        except TooManyIterations as e:
+            msg = f"Too many iterations in calculating concentrations in iteration n.{iterations}\n\n"
+            e.msg = msg + e.msg
+            e.last_value = log_beta
+            raise e
         _initial_guess = c[:, : stoichiometry.shape[0]]
         return c
 
@@ -100,6 +112,7 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         build_reduced_emf(emf_, emf0_, slope_)
         for emf_, emf0_, slope_ in zip(emf, emf0, slope)
     ]
+
     if ul + ll != 0:
         idx_to_keep = [
             (-red_emf >= ll * 2.303) & (-red_emf <= ul * 2.303)
@@ -112,6 +125,7 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         idx_to_keep = [None for _ in reduced_emf]
 
     full_emf = np.concatenate(reduced_emf, axis=0).ravel()
+
     n_exp_points = full_emf.shape[0]
 
     if data.potentiometry_opts.weights == "constants":
@@ -176,11 +190,11 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         full=False,
     )
 
-    if outer_fixed_point_params["ionic_strength_dependence"] is True:
-        print(
-            "Ionic strength dependence for potentiometry oprimization is not implemented yet."
-        )
-        outer_fixed_point_params["ionic_strength_dependence"] = False
+    # if outer_fixed_point_params["ionic_strength_dependence"] is True:
+    #     print(
+    #         "Ionic strength dependence for potentiometry oprimization is not implemented yet."
+    #     )
+    #     outer_fixed_point_params["ionic_strength_dependence"] = False
 
     x, concs, return_extra = levenberg_marquardt(
         np.fromiter(unravel(data.log_beta, beta_flags), dtype=float) * 2.303,

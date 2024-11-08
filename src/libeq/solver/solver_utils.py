@@ -4,9 +4,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from libeq.data_structure import (
-    SolverData,
-    SimulationTitrationParameters,
     PotentiometryTitrationsParameters,
+    SimulationTitrationParameters,
+    SolverData,
 )
 from libeq.utils import species_concentration
 
