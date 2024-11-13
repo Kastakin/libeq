@@ -744,7 +744,7 @@ class SolverData(BaseModel):
                             "slope": t.slope,
                             "initialVolume": t.v0,
                             "vSigma": t.v0_sigma,
-                            "pxRange": self.potentiometry_opts.px_range,
+                            "pxRange": t.px_range,
                             "titrationView": {
                                 "0": {i: v for i, v in enumerate(t.ignored)},
                                 "1": {i: v for i, v in enumerate(t.v_add)},
