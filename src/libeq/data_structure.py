@@ -146,19 +146,19 @@ class SolverData(BaseModel):
             {
                 "field": "Initial pX",
                 "condition": (self.distribution_opts.initial_log is not None)
-                & (self.distribution_opts.initial_log > 0),
+                and (self.distribution_opts.initial_log > 0),
                 "error_message": "Initial log must be provided",
             },
             {
                 "field": "Final pX",
                 "condition": (self.distribution_opts.final_log is not None)
-                & (self.distribution_opts.final_log > 0),
+                and (self.distribution_opts.final_log > 0),
                 "error_message": "Final log must be provided",
             },
             {
                 "field": "pX increments",
                 "condition": (self.distribution_opts.log_increments is not None)
-                & (self.distribution_opts.log_increments > 0),
+                and (self.distribution_opts.log_increments > 0),
                 "error_message": "Log increments must be provided",
             },
             {
@@ -169,7 +169,7 @@ class SolverData(BaseModel):
             {
                 "field": "Independent component concentration",
                 "condition": (self.distribution_opts.c0 is not None)
-                & (
+                and (
                     self.distribution_opts.c0[
                         self.distribution_opts.independent_component
                     ]
@@ -195,25 +195,25 @@ class SolverData(BaseModel):
             {
                 "field": "Initial Volume",
                 "condition": (self.titration_opts.v0 is not None)
-                & (self.titration_opts.v0 > 0),
+                and (self.titration_opts.v0 > 0),
                 "error_message": "Initial volume must be provided",
             },
             {
                 "field": "Volume increments",
                 "condition": (self.titration_opts.v_increment is not None)
-                & (self.titration_opts.v_increment > 0),
+                and (self.titration_opts.v_increment > 0),
                 "error_message": "Volume increments must be provided",
             },
             {
                 "field": "Number of points",
                 "condition": (self.titration_opts.n_add is not None)
-                & (self.titration_opts.n_add > 0),
+                and (self.titration_opts.n_add > 0),
                 "error_message": "Number of titration points must be provided",
             },
             {
                 "field": "Titrant concentration",
                 "condition": (self.titration_opts.ct is not None)
-                & (self.titration_opts.ct != 0).any(),
+                and (self.titration_opts.ct != 0).any(),
                 "error_message": "Titrant concentrations must be provided",
             },
         ]
@@ -236,7 +236,7 @@ class SolverData(BaseModel):
                 "condition": np.fromiter(
                     (t.v0 is not None for t in self.potentiometry_opts.titrations), bool
                 ).all()
-                & np.fromiter(
+                and np.fromiter(
                     (t.v0 > 0 for t in self.potentiometry_opts.titrations), bool
                 ).all(),
                 "error_message": "Initial volume must be provided for all titrations",
@@ -250,7 +250,7 @@ class SolverData(BaseModel):
                     ),
                     bool,
                 ).all()
-                & np.fromiter(
+                and np.fromiter(
                     (t.v0_sigma > 0 for t in self.potentiometry_opts.titrations), bool
                 ).all(),
                 "error_message": "Volume standard deviation must be provided for all titrations",
@@ -261,7 +261,7 @@ class SolverData(BaseModel):
                     (t.e0 is not None for t in self.potentiometry_opts.titrations),
                     bool,
                 ).all()
-                & np.fromiter(
+                and np.fromiter(
                     (t.e0 > 0 for t in self.potentiometry_opts.titrations), bool
                 ).all(),
                 "error_message": "Electrode potential must be provided for all titrations",
@@ -275,7 +275,7 @@ class SolverData(BaseModel):
                     ),
                     bool,
                 ).all()
-                & np.fromiter(
+                and np.fromiter(
                     (t.e0_sigma > 0 for t in self.potentiometry_opts.titrations), bool
                 ).all(),
                 "error_message": "Electrode standard deviation must be provided for all titrations",
@@ -286,7 +286,7 @@ class SolverData(BaseModel):
                     (t.slope is not None for t in self.potentiometry_opts.titrations),
                     bool,
                 ).all()
-                & np.fromiter(
+                and np.fromiter(
                     (t.slope != 0 for t in self.potentiometry_opts.titrations), bool
                 ).all(),
                 "error_message": "Slope must be provided for all titrations",
@@ -297,7 +297,7 @@ class SolverData(BaseModel):
                     (t.ct is not None for t in self.potentiometry_opts.titrations),
                     bool,
                 ).all()
-                & np.fromiter(
+                and np.fromiter(
                     ((t.ct != 0).any() for t in self.potentiometry_opts.titrations),
                     bool,
                 ).all(),
@@ -309,7 +309,7 @@ class SolverData(BaseModel):
                     (t.c0 is not None for t in self.potentiometry_opts.titrations),
                     bool,
                 ).all()
-                & np.fromiter(
+                and np.fromiter(
                     ((t.c0 != 0).any() for t in self.potentiometry_opts.titrations),
                     bool,
                 ).all(),
@@ -321,7 +321,7 @@ class SolverData(BaseModel):
                     (t.ignored is not None for t in self.potentiometry_opts.titrations),
                     bool,
                 ).all()
-                & np.fromiter(
+                and np.fromiter(
                     (
                         ~(t.ignored == True).all()  # noqa: E712
                         for t in self.potentiometry_opts.titrations
@@ -336,7 +336,7 @@ class SolverData(BaseModel):
                     (t.v_add is not None for t in self.potentiometry_opts.titrations),
                     bool,
                 ).all()
-                & np.fromiter(
+                and np.fromiter(
                     (t.v_add.size > 0 for t in self.potentiometry_opts.titrations),
                     bool,
                 ).all(),
