@@ -10,6 +10,7 @@ from libeq.solver.solver_utils import (
     _assemble_outer_fixed_point_params,
     _prepare_common_data,
     _titration_total_c,
+    _titration_background_ions_c,
 )
 
 from .fitter import levenberg_marquardt
@@ -101,28 +102,34 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         print("----------------\n")
 
     # Load the n titrations with their potential from the data file
+    slope = [t.slope for t in data.potentiometry_opts.titrations]
     emf = [t.emf for t in data.potentiometry_opts.titrations]
     emf0 = [t.e0 for t in data.potentiometry_opts.titrations]
-    slope = [t.slope for t in data.potentiometry_opts.titrations]
     v_add = [t.v_add for t in data.potentiometry_opts.titrations]
-
-    ll, ul = data.potentiometry_opts.px_range
+    px_ranges = [t.px_range for t in data.potentiometry_opts.titrations]
+    idx_to_keep = [~t.ignored for t in data.potentiometry_opts.titrations]
 
     reduced_emf = [
         build_reduced_emf(emf_, emf0_, slope_)
         for emf_, emf0_, slope_ in zip(emf, emf0, slope)
     ]
 
-    if ul + ll != 0:
-        idx_to_keep = [
-            (-red_emf >= ll * 2.303) & (-red_emf <= ul * 2.303)
-            for red_emf in reduced_emf
-        ]
-        reduced_emf = [red_emf[idx] for red_emf, idx in zip(reduced_emf, idx_to_keep)]
-        emf = [emf[idx] for emf, idx in zip(emf, idx_to_keep)]
-        v_add = [v_add[idx] for v_add, idx in zip(v_add, idx_to_keep)]
-    else:
-        idx_to_keep = [None for _ in reduced_emf]
+    for i, ranges in enumerate(px_ranges):
+        if ranges:
+            valid_ranges = np.array(
+                [r for r in ranges if not (r[0] == 0 and r[1] == 0)]
+            )
+            if valid_ranges.size > 0:
+                ll_ul = valid_ranges * 2.303
+                emf_values = -reduced_emf[i][:, np.newaxis]
+                idx = np.any(
+                    (emf_values >= ll_ul[:, 0]) & (emf_values <= ll_ul[:, 1]), axis=1
+                )
+                idx &= idx_to_keep[i]
+                idx_to_keep[i] = idx
+        reduced_emf[i] = reduced_emf[i][idx_to_keep[i]]
+        emf[i] = emf[i][idx_to_keep[i]]
+        v_add[i] = v_add[i][idx_to_keep[i]]
 
     full_emf = np.concatenate(reduced_emf, axis=0).ravel()
 
@@ -172,11 +179,18 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         ]
     )
 
+    background_ions_concentration = np.vstack(
+        [
+            _titration_background_ions_c(t, i)
+            for t, i in zip(data.potentiometry_opts.titrations, idx_to_keep)
+        ]
+    )
+
     original_log_beta = np.tile(original_log_beta, (total_concentration.shape[0], 1))
     original_log_ks = np.tile(original_log_ks, (total_concentration.shape[0], 1))
 
     outer_fixed_point_params = _assemble_outer_fixed_point_params(
-        data, charges, independent_component_activity
+        data, charges, background_ions_concentration, independent_component_activity
     )
 
     _initial_guess, *_ = solve_equilibrium_equations(
@@ -190,12 +204,6 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         full=False,
     )
 
-    # if outer_fixed_point_params["ionic_strength_dependence"] is True:
-    #     print(
-    #         "Ionic strength dependence for potentiometry oprimization is not implemented yet."
-    #     )
-    #     outer_fixed_point_params["ionic_strength_dependence"] = False
-
     x, concs, return_extra = levenberg_marquardt(
         np.fromiter(unravel(data.log_beta, beta_flags), dtype=float) * 2.303,
         full_emf,
@@ -206,8 +214,25 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         report=reporter,
     )
 
+    final_log_beta = np.tile(
+        np.array(list(ravel(data.log_beta, x, data.potentiometry_opts.beta_flags))),
+        (total_concentration.shape[0], 1),
+    )
+
+    _, final_log_beta, *_ = solve_equilibrium_equations(
+        stoichiometry=stoichiometry,
+        solid_stoichiometry=solid_stoichiometry,
+        original_log_beta=original_log_beta,
+        original_log_ks=original_log_ks,
+        total_concentration=total_concentration,
+        outer_fiexd_point_params=outer_fixed_point_params,
+        initial_guess=None,
+        full=False,
+    )
+
     return_extra["total_concentration"] = total_concentration
     return_extra["slices"] = slices
+    return_extra["idx_to_keep"] = idx_to_keep
 
     return_extra["read_potential"] = emf
 
@@ -230,7 +255,7 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
     # For consistency return only the free concentrations
     concs = concs[:, : data.nc + data.nf]
 
-    return x, concs, b_error, cor_matrix, cov_matrix, return_extra
+    return x, concs, final_log_beta, b_error, cor_matrix, cov_matrix, return_extra
 
 
 def build_reduced_emf(emf, emf0, slope):

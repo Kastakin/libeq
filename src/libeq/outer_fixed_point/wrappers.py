@@ -1,9 +1,8 @@
-import warnings
-
 import numpy as np
+import warnings
+from libeq.excepts import DivergedIonicStrengthWarning
 from numpy.typing import NDArray
 
-from libeq.excepts import DivergedIonicStrengthWarning
 from libeq.utils import species_concentration
 
 
@@ -11,6 +10,7 @@ def outer_fixed_point(
     *,
     ionic_strength_dependence: bool = False,
     charges: NDArray | None = None,
+    background_ions_concentration: NDArray | float | None = None,
     reference_ionic_str_species: NDArray | None = None,
     reference_ionic_str_solids: NDArray | None = None,
     dbh_values: dict[str, dict[str, NDArray]] | None = None,
@@ -110,6 +110,7 @@ def outer_fixed_point(
             ionic = _ionic_fn(
                 _select_species_concentration(concentrations, n_components, n_species),
                 charges,
+                background_ions_concentration,
                 independent_component_activity=transposed_activity,
             )
             log_beta = _update_formation_constants(
@@ -147,6 +148,7 @@ def outer_fixed_point(
                         concentrations, n_components, n_species
                     ),
                     charges,
+                    background_ions_concentration,
                     independent_component_activity=transposed_activity,
                 )
 
@@ -170,8 +172,6 @@ def outer_fixed_point(
                 )
 
                 if converged:
-                    # print(func.__name__)
-                    # print(f"Outer converged in {iterations} iterations")
                     break
                 elif is_best:
                     best_log_beta = log_beta
@@ -191,13 +191,25 @@ def outer_fixed_point(
         def _distribution_ionic(
             concentration: NDArray,
             charges: NDArray,
+            background_ions_concentration: NDArray | float | None,
             *,
             independent_component_activity: NDArray,
         ) -> NDArray:
-            return _ionic(concentration, charges) + independent_component_activity
+            return (
+                _ionic(concentration, charges, background_ions_concentration)
+                + independent_component_activity
+            )
 
-        def _ionic(concentration: NDArray, charges: NDArray, **kwargs) -> NDArray:
-            return 0.5 * (concentration * (charges**2)).sum(axis=1, keepdims=True)
+        def _ionic(
+            concentration: NDArray,
+            charges: NDArray,
+            background_ions_concentration: NDArray,
+            **kwargs,
+        ) -> NDArray:
+            return 0.5 * (
+                (concentration * (charges**2)).sum(axis=1, keepdims=True)
+                + background_ions_concentration
+            )
 
         if ionic_strength_dependence:
             if independent_component_activity is None:

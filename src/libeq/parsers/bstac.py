@@ -1,7 +1,7 @@
 from typing import Any
 
 
-def parse_titration(lines, jw, nc) -> list[dict[str, Any]]:
+def parse_titration(lines, jw, icd, nc) -> list[dict[str, Any]]:
     tot_length = len(lines)
     sections = [
         (lambda line: line.strip(), 1, "titration_name"),  # NAMET
@@ -52,6 +52,8 @@ def parse_titration(lines, jw, nc) -> list[dict[str, Any]]:
     while True:
         titration = {}
         for process_func, repeat, name in sections:
+            if name == "background_params" and icd == 0:
+                continue
             if isinstance(repeat, int):
                 for _ in range(repeat):
                     titration[name] = process_func(lines[line_counter])
@@ -76,6 +78,7 @@ def parse_titration(lines, jw, nc) -> list[dict[str, Any]]:
                     titration.setdefault("potential", []).append(parsed_line[1])
                     if jw == 2:
                         titration.setdefault("sigma", []).append(parsed_line[2])
+                    titration.setdefault("ignored", []).append(parsed_line[-1] == -1)
                     line_counter += 1
                     if parsed_line[-1] == 1:
                         break
@@ -225,7 +228,7 @@ def parse_BSTAC_file(lines):
             result[name] = parsed_section
             line_counter += ns
         elif repeat == "end_of_file":
-            parsed_section = process_func(lines[line_counter:], result["MODE"], nc)
+            parsed_section = process_func(lines[line_counter:], result["MODE"], icd, nc)
             result[name] = parsed_section
 
     return result

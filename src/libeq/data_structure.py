@@ -4,10 +4,16 @@ from typing import Any, Dict, List, Literal
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, computed_field
-from pydantic_numpy.typing import Np1DArrayFp64, Np2DArrayFp64, Np2DArrayInt8
+from pydantic_numpy.typing import (
+    Np1DArrayFp64,
+    Np2DArrayFp64,
+    Np2DArrayInt8,
+    Np1DArrayBool,
+)
+
+from .utils import NumpyEncoder
 
 from .parsers import parse_BSTAC_file
-from .utils import NumpyEncoder
 
 
 def _assemble_species_names(components, stoichiometry):
@@ -32,12 +38,17 @@ class DistributionParameters(BaseModel):
 
     independent_component: int | None = None
 
+    cback: float = 0
+
 
 class TitrationParameters(BaseModel):
     c0: Np1DArrayFp64 | None = None
     c0_sigma: Np1DArrayFp64 | None = None
     ct: Np1DArrayFp64 | None = None
     ct_sigma: Np1DArrayFp64 | None = None
+
+    c0back: float = 0
+    ctback: float = 0
 
 
 class SimulationTitrationParameters(TitrationParameters):
@@ -55,11 +66,12 @@ class PotentiometryTitrationsParameters(TitrationParameters):
     v0_sigma: float | None = None
     v_add: Np1DArrayFp64 | None = None
     emf: Np1DArrayFp64 | None = None
+    px_range: List[list[float]] = [[0, 0]]
+    ignored: Np1DArrayBool | None = None
 
 
 class PotentiometryOptions(BaseModel):
     titrations: List[PotentiometryTitrationsParameters] = []
-    px_range: List[float] = [0, 0]
     weights: Literal["constants", "calculated", "given"] = "constants"
     beta_flags: List[int] = []
     conc_flags: List[int] = []
@@ -250,8 +262,12 @@ class SolverData(BaseModel):
                 ),
                 v0=t["v_params"][0],
                 v0_sigma=t["v_params"][1],
+                ignored=np.array(t["ignored"]),
                 v_add=np.array(t["volume"]),
                 emf=np.array(t["potential"]),
+                c0back=t["background_params"][0] if "background_params" in t else 0,
+                ctback=t["background_params"][1] if "background_params" in t else 0,
+                px_range=[[parsed_data["PHI"], parsed_data["PHF"]]],
             )
             for t in parsed_data["titrations"]
         ]
@@ -270,7 +286,6 @@ class SolverData(BaseModel):
         data["potentiometry_opts"] = PotentiometryOptions(
             titrations=titration_options,
             weights=weights,
-            px_range=[parsed_data["PHI"], parsed_data["PHF"]],
             beta_flags=[s["KEY"] for s in parsed_data["species"]],
             conc_flags=[],
             pot_flags=[],
@@ -356,6 +371,7 @@ class SolverData(BaseModel):
             final_log=pyes_data.get("finalLog", 0.0),
             log_increments=pyes_data.get("logInc", 0.0),
             independent_component=pyes_data.get("ind_comp", 0),
+            cback=pyes_data.get("cback", 0.0),
         )
 
         data["titration_opts"] = SimulationTitrationParameters(
@@ -370,6 +386,8 @@ class SolverData(BaseModel):
             v0=pyes_data.get("v0", 0.0),
             v_increment=pyes_data.get("vinc", 0.0),
             n_add=pyes_data.get("nop", 0),
+            c0back=pyes_data.get("c0back", 0.0),
+            ctback=pyes_data.get("ctback", 0.0),
         )
 
         potentiometry_data = pyes_data["potentiometry_data"]
@@ -398,17 +416,22 @@ class SolverData(BaseModel):
                     slope=t["slope"],
                     v0=t["initialVolume"],
                     v0_sigma=t["vSigma"],
+                    ignored=np.array(
+                        list(t.get("titrationView", {}).get("0", {}).values())
+                    ),
                     v_add=np.array(
                         list(t.get("titrationView", {}).get("1", {}).values())
                     ),
                     emf=np.array(
                         list(t.get("titrationView", {}).get("2", {}).values())
                     ),
+                    c0back=t.get("c0back", 0.0),
+                    ctback=t.get("ctback", 0.0),
+                    px_range=[px_range for px_range in t["pxRange"]],
                 )
             )
         data["potentiometry_opts"] = PotentiometryOptions(
             titrations=titrations,
-            # px_range=[pyes_data.get("phi"), pyes_data.get("phf")],
             weights=weights,
             beta_flags=[int(v) for v in potentiometry_data["beta_refine_flags"]],
             conc_flags=[],
@@ -479,12 +502,12 @@ class SolverData(BaseModel):
                             "slope": t.slope,
                             "initialVolume": t.v0,
                             "vSigma": t.v0_sigma,
+                            "pxRange": self.potentiometry_opts.px_range,
                             "titrationView": {
-                                "0": {i: False for i, _ in enumerate(t.v_add)},
+                                "0": {i: v for i, v in enumerate(t.ignored)},
                                 "1": {i: v for i, v in enumerate(t.v_add)},
                                 "2": {i: v for i, v in enumerate(t.emf)},
                                 "3": {i: 0 for i, _ in enumerate(t.emf)},
-                                "pX": {i: 0 for i, _ in enumerate(t.emf)},
                             },
                         }
                         for t in self.potentiometry_opts.titrations
@@ -500,6 +523,7 @@ class SolverData(BaseModel):
                 "initialLog": self.distribution_opts.initial_log,
                 "finalLog": self.distribution_opts.final_log,
                 "logInc": self.distribution_opts.log_increments,
+                "cback": self.distribution_opts.cback,
             }
         else:
             distribution_section = {}
@@ -510,6 +534,8 @@ class SolverData(BaseModel):
                 "initv": self.titration_opts.v0,
                 "vinc": self.titration_opts.v_increment,
                 "nop": self.titration_opts.n_add,
+                "c0back": self.titration_opts.c0back,
+                "ctback": self.titration_opts.ctback,
             }
         else:
             titration_section = {}

@@ -4,15 +4,18 @@ import numpy as np
 from numpy.typing import NDArray
 
 from libeq.data_structure import (
-    PotentiometryTitrationsParameters,
-    SimulationTitrationParameters,
     SolverData,
+    SimulationTitrationParameters,
+    PotentiometryTitrationsParameters,
 )
 from libeq.utils import species_concentration
 
 
 def _assemble_outer_fixed_point_params(
-    data: SolverData, charges, independent_component_activity
+    data: SolverData,
+    charges,
+    background_ions_concentration,
+    independent_component_activity,
 ):
     outer_fixed_point_params = {
         "ionic_strength_dependence": data.ionic_strength_dependence,
@@ -21,6 +24,7 @@ def _assemble_outer_fixed_point_params(
         "dbh_values": deepcopy(data.dbh_values),
         "charges": charges,
         "independent_component_activity": independent_component_activity,
+        "background_ions_concentration": background_ions_concentration,
     }
     return outer_fixed_point_params
 
@@ -166,6 +170,9 @@ def _prepare_distribution_data(data: SolverData):
         axis=0,
     )
     total_concentration[:, independent_component] = independent_component_concentration
+
+    background_ions_concentration = data.distribution_opts.cback
+
     # Reduce the problem by accounting for the independent component
     (
         stoichiometry,
@@ -191,6 +198,7 @@ def _prepare_distribution_data(data: SolverData):
         original_log_beta,
         original_log_ks,
         charges,
+        background_ions_concentration,
         independent_component_activity,
         total_concentration,
         independent_component,
@@ -211,6 +219,7 @@ def _prepare_titration_data(data: SolverData):
     total_concentration = _titration_total_c(data.titration_opts)
     original_log_beta = np.tile(original_log_beta, (total_concentration.shape[0], 1))
     original_log_ks = np.tile(original_log_ks, (total_concentration.shape[0], 1))
+    background_ions_concentration = _titration_background_ions_c(data.titration_opts)
 
     return (
         stoichiometry,
@@ -218,6 +227,7 @@ def _prepare_titration_data(data: SolverData):
         original_log_beta,
         original_log_ks,
         charges,
+        background_ions_concentration,
         independent_component_activity,
         total_concentration,
     )
@@ -231,17 +241,43 @@ def _titration_total_c(
     ct = titration_data.ct
     v0 = titration_data.v0
 
+    v_add = _get_titration_vadd(titration_data, idx)
+
+    total_concentration: NDArray = (
+        ((c0 * v0)[:, np.newaxis] + ct[:, np.newaxis] * v_add) / (v_add + v0)
+    ).T
+
+    return total_concentration
+
+
+def _titration_background_ions_c(
+    titration_data: PotentiometryTitrationsParameters | SimulationTitrationParameters,
+    idx=None,
+):
+    c0back = titration_data.c0back
+    ctback = titration_data.ctback
+    v0 = titration_data.v0
+
+    v_add = _get_titration_vadd(titration_data, idx)
+
+    background_ions_concentration: NDArray = np.atleast_2d(
+        ((c0back * v0) + ctback * v_add) / (v_add + v0)
+    ).T
+
+    return background_ions_concentration
+
+
+def _get_titration_vadd(
+    titration_data: PotentiometryTitrationsParameters | SimulationTitrationParameters,
+    idx=None,
+):
     if isinstance(titration_data, PotentiometryTitrationsParameters):
         v_add = titration_data.v_add
         if idx is not None:
             v_add = v_add[idx]
     else:
         v_add = np.arange(titration_data.n_add) * (titration_data.v_increment)
-    total_concentration: NDArray = (
-        ((c0 * v0)[:, np.newaxis] + ct[:, np.newaxis] * v_add) / (v_add + v0)
-    ).T
-
-    return total_concentration
+    return v_add
 
 
 def _simplify_model(

@@ -4,8 +4,8 @@ import numpy as np
 
 from libeq.data_structure import SolverData
 from libeq.outer_fixed_point import outer_fixed_point
-
 from ..utils import species_concentration
+
 from .damping import pcf
 from .nr import newton_raphson
 from .solids_solver import solids_solver
@@ -57,6 +57,7 @@ def EqSolver(
             original_log_beta,
             original_log_ks,
             charges,
+            background_ions_concentration,
             independent_component_activity,
             total_concentration,
         ) = _prepare_titration_data(data)
@@ -67,6 +68,7 @@ def EqSolver(
             original_log_beta,
             original_log_ks,
             charges,
+            background_ions_concentration,
             independent_component_activity,
             total_concentration,
             independent_component,
@@ -76,7 +78,7 @@ def EqSolver(
         raise ValueError("Invalid work mode")
 
     outer_fiexd_point_params = _assemble_outer_fixed_point_params(
-        data, charges, independent_component_activity
+        data, charges, background_ions_concentration, independent_component_activity
     )
 
     # Solve the equilibrium equations
