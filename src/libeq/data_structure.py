@@ -28,6 +28,18 @@ def _assemble_species_names(components, stoichiometry):
     return species_names
 
 
+def _validate_or_error(
+    field: str, condition: bool, error_message: str, errors: Dict[str, str]
+) -> Dict[str, str]:
+    try:
+        if not condition:
+            errors[field] = error_message
+    except Exception as _:
+        errors[field] = error_message
+
+    return errors
+
+
 class DistributionParameters(BaseModel):
     c0: Np1DArrayFp64 | None = None
     c0_sigma: Np1DArrayFp64 | None = None
@@ -102,21 +114,250 @@ class SolverData(BaseModel):
     reference_ionic_str_solids: Np1DArrayFp64 | float = 0
     dbh_params: Np1DArrayFp64 = np.zeros(8)
 
-    # TODO: Add more stringent validation for allowed modes
     @computed_field
     @cached_property
-    def distribution_ready(self) -> bool:
-        return self.distribution_opts.c0 is not None
+    def model_ready(self) -> tuple[bool, dict[str, str]]:
+        fields_to_check = [
+            {
+                "field": "Components",
+                "condition": len(self.components) > 0,
+                "error_message": "At least one component must be provided",
+            },
+            {
+                "field": "Stoichiometry",
+                "condition": self.stoichiometry.size > 0,
+                "error_message": "Stoichiometry matrix must be provided",
+            },
+        ]
+
+        errors = {}
+        for check in fields_to_check:
+            errors = _validate_or_error(**check, errors=errors)
+
+        if errors:
+            return False, errors
+        else:
+            return True, errors
 
     @computed_field
     @cached_property
-    def titration_ready(self) -> bool:
-        return self.titration_opts.c0 is not None
+    def distribution_ready(self) -> tuple[bool, dict[str, str]]:
+        fields_to_check = [
+            {
+                "field": "Initial pX",
+                "condition": (self.distribution_opts.initial_log is not None)
+                & (self.distribution_opts.initial_log > 0),
+                "error_message": "Initial log must be provided",
+            },
+            {
+                "field": "Final pX",
+                "condition": (self.distribution_opts.final_log is not None)
+                & (self.distribution_opts.final_log > 0),
+                "error_message": "Final log must be provided",
+            },
+            {
+                "field": "pX increments",
+                "condition": (self.distribution_opts.log_increments is not None)
+                & (self.distribution_opts.log_increments > 0),
+                "error_message": "Log increments must be provided",
+            },
+            {
+                "field": "Independent component",
+                "condition": self.distribution_opts.independent_component is not None,
+            },
+            {
+                "field": "Independent component concentration",
+                "condition": (self.distribution_opts.c0 is not None)
+                & (
+                    self.distribution_opts.c0[
+                        self.distribution_opts.independent_component
+                    ]
+                    > 0
+                ),
+                "error_message": "Concentration of independent component must be provided",
+            },
+        ]
+
+        errors = {}
+        for check in fields_to_check:
+            errors = _validate_or_error(**check, errors=errors)
+
+        if errors:
+            return False, errors
+        else:
+            return True, errors
 
     @computed_field
     @cached_property
-    def potentiometry_ready(self) -> bool:
-        return len(self.potentiometry_opts.titrations) > 0
+    def titration_ready(self) -> tuple[bool, dict[str, str]]:
+        fields_to_check = [
+            {
+                "field": "Initial Volume",
+                "condition": (self.titration_opts.v0 is not None)
+                & (self.titration_opts.v0 > 0),
+                "error_message": "Initial volume must be provided",
+            },
+            {
+                "field": "Volume increments",
+                "condition": (self.titration_opts.v_increment is not None)
+                & (self.titration_opts.v_increment > 0),
+                "error_message": "Volume increments must be provided",
+            },
+            {
+                "field": "Number of points",
+                "condition": (self.titration_opts.n_add is not None)
+                & (self.titration_opts.n_add > 0),
+                "error_message": "Number of titration points must be provided",
+            },
+            {
+                "field": "Titrant concentration",
+                "condition": (self.titration_opts.ct is not None)
+                & (self.titration_opts.ct != 0).any(),
+                "error_message": "Titrant concentrations must be provided",
+            },
+        ]
+
+        errors = {}
+        for check in fields_to_check:
+            errors = _validate_or_error(**check, errors=errors)
+
+        if errors:
+            return False, errors
+        else:
+            return True, errors
+
+    @computed_field
+    @cached_property
+    def potentiometry_ready(self) -> tuple[bool, dict[str, str]]:
+        fields_to_check = [
+            {
+                "field": "Initial Volume",
+                "condition": np.fromiter(
+                    (t.v0 is not None for t in self.potentiometry_opts.titrations), bool
+                ).all()
+                & np.fromiter(
+                    (t.v0 > 0 for t in self.potentiometry_opts.titrations), bool
+                ).all(),
+                "error_message": "Initial volume must be provided for all titrations",
+            },
+            {
+                "field": "Volume sigma",
+                "condition": np.fromiter(
+                    (
+                        t.v0_sigma is not None
+                        for t in self.potentiometry_opts.titrations
+                    ),
+                    bool,
+                ).all()
+                & np.fromiter(
+                    (t.v0_sigma > 0 for t in self.potentiometry_opts.titrations), bool
+                ).all(),
+                "error_message": "Volume standard deviation must be provided for all titrations",
+            },
+            {
+                "field": "E0",
+                "condition": np.fromiter(
+                    (t.e0 is not None for t in self.potentiometry_opts.titrations),
+                    bool,
+                ).all()
+                & np.fromiter(
+                    (t.e0 > 0 for t in self.potentiometry_opts.titrations), bool
+                ).all(),
+                "error_message": "Electrode potential must be provided for all titrations",
+            },
+            {
+                "field": "E Sigma",
+                "condition": np.fromiter(
+                    (
+                        t.e0_sigma is not None
+                        for t in self.potentiometry_opts.titrations
+                    ),
+                    bool,
+                ).all()
+                & np.fromiter(
+                    (t.e0_sigma > 0 for t in self.potentiometry_opts.titrations), bool
+                ).all(),
+                "error_message": "Electrode standard deviation must be provided for all titrations",
+            },
+            {
+                "field": "Slope",
+                "condition": np.fromiter(
+                    (t.slope is not None for t in self.potentiometry_opts.titrations),
+                    bool,
+                ).all()
+                & np.fromiter(
+                    (t.slope != 0 for t in self.potentiometry_opts.titrations), bool
+                ).all(),
+                "error_message": "Slope must be provided for all titrations",
+            },
+            {
+                "field": "Titrant concentration",
+                "condition": np.fromiter(
+                    (t.ct is not None for t in self.potentiometry_opts.titrations),
+                    bool,
+                ).all()
+                & np.fromiter(
+                    ((t.ct != 0).any() for t in self.potentiometry_opts.titrations),
+                    bool,
+                ).all(),
+                "error_message": "Titrant concentrations must be provided",
+            },
+            {
+                "field": "Initial concentration",
+                "condition": np.fromiter(
+                    (t.c0 is not None for t in self.potentiometry_opts.titrations),
+                    bool,
+                ).all()
+                & np.fromiter(
+                    ((t.c0 != 0).any() for t in self.potentiometry_opts.titrations),
+                    bool,
+                ).all(),
+                "error_message": "Initial concentrations must be provided",
+            },
+            {
+                "field": "Ignored points",
+                "condition": np.fromiter(
+                    (t.ignored is not None for t in self.potentiometry_opts.titrations),
+                    bool,
+                ).all()
+                & np.fromiter(
+                    (
+                        ~(t.ignored == True).all()  # noqa: E712
+                        for t in self.potentiometry_opts.titrations
+                    ),
+                    bool,
+                ).all(),
+                "error_message": "At least one point must not be ignored",
+            },
+            {
+                "field": "Number of points",
+                "condition": np.fromiter(
+                    (t.v_add is not None for t in self.potentiometry_opts.titrations),
+                    bool,
+                ).all()
+                & np.fromiter(
+                    (t.v_add.size > 0 for t in self.potentiometry_opts.titrations),
+                    bool,
+                ).all(),
+                "error_message": "Titrations need at least one point",
+            },
+            {
+                "field": "Optimization targets",
+                "condition": np.bool_(
+                    np.array((self.potentiometry_opts.beta_flags))
+                ).any(),
+                "error_message": "No optimization targets selected",
+            },
+        ]
+
+        errors = {}
+        for check in fields_to_check:
+            errors = _validate_or_error(**check, errors=errors)
+
+        if errors:
+            return False, errors
+        else:
+            return True, errors
 
     @computed_field
     @cached_property
