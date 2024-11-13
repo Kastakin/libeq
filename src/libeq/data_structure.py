@@ -164,6 +164,7 @@ class SolverData(BaseModel):
             {
                 "field": "Independent component",
                 "condition": self.distribution_opts.independent_component is not None,
+                "error_message": "Independent component must be provided",
             },
             {
                 "field": "Independent component concentration",
