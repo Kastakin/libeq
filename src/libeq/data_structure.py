@@ -810,7 +810,7 @@ class SolverData(BaseModel):
             "nc": self.nc,
             "ns": self.ns,
             "np": self.nf,
-            "emode": True,
+            "emode": False,
             "imode": 1 if self.ionic_strength_dependence else 0,
             "ris": 0.0,
             "a": self.dbh_params[0],
@@ -824,7 +824,7 @@ class SolverData(BaseModel):
             "dmode": 0,
             "compModel": {
                 "Name": {i: name for i, name in enumerate(self.components)},
-                "Charge": {i: charge for i, charge in enumerate(self.charges)},
+                "Charge": {i: int(charge) for i, charge in enumerate(self.charges)},
             },
             "speciesModel": {
                 "Ignored": {i: False for i in range(self.ns)},
