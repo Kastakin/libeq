@@ -485,7 +485,6 @@ class SolverData(BaseModel):
             data["dbh_params"] = [
                 parsed_data[i] for i in ["AT", "BT", "c0", "c1", "d0", "d1", "e0", "e1"]
             ]
-
         titration_options = [
             PotentiometryTitrationsParameters(
                 c0=np.array([c["C0"] for c in t["components_concentrations"]]),
@@ -712,7 +711,7 @@ class SolverData(BaseModel):
             for comp_name, row in zip(self.components, self.solid_stoichiometry)
         }
 
-        if self.potentiometry_ready:
+        if self.potentiometry_ready[0]:
             if self.potentiometry_opts.weights == "constants":
                 weights_mode = 0
             elif self.potentiometry_opts.weights == "calculated":
@@ -759,7 +758,7 @@ class SolverData(BaseModel):
         else:
             potentiometry_section = {}
 
-        if self.distribution_ready:
+        if self.distribution_ready[0]:
             distribution_section = {
                 "ind_comp": self.distribution_opts.independent_component,
                 "initialLog": self.distribution_opts.initial_log,
@@ -770,7 +769,7 @@ class SolverData(BaseModel):
         else:
             distribution_section = {}
 
-        if self.titration_ready:
+        if self.titration_ready[0]:
             titration_section = {
                 "v0": self.titration_opts.v0,
                 "initv": self.titration_opts.v0,
@@ -782,7 +781,7 @@ class SolverData(BaseModel):
         else:
             titration_section = {}
 
-        if self.titration_ready or self.distribution_ready:
+        if self.titration_ready[0] or self.distribution_ready[0]:
             conc_section = {
                 "concModel": {
                     "C0": {i: c0 for i, c0 in enumerate(self.distribution_opts.c0)},
