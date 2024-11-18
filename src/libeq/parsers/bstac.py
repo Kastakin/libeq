@@ -52,8 +52,6 @@ def parse_titration(lines, jw, icd, nc) -> list[dict[str, Any]]:
     while True:
         titration = {}
         for process_func, repeat, name in sections:
-            if name == "background_params" and icd == 0:
-                continue
             if isinstance(repeat, int):
                 for _ in range(repeat):
                     titration[name] = process_func(lines[line_counter])
