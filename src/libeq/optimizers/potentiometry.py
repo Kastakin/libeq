@@ -226,7 +226,7 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         original_log_ks=original_log_ks,
         total_concentration=total_concentration,
         outer_fiexd_point_params=outer_fixed_point_params,
-        initial_guess=None,
+        initial_guess=concs[:, : stoichiometry.shape[0]],
         full=False,
     )
 
