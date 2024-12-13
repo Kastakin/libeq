@@ -166,17 +166,6 @@ class SolverData(BaseModel):
                 "condition": self.distribution_opts.independent_component is not None,
                 "error_message": "Independent component must be provided",
             },
-            {
-                "field": "Independent component concentration",
-                "condition": (self.distribution_opts.c0 is not None)
-                and (
-                    self.distribution_opts.c0[
-                        self.distribution_opts.independent_component
-                    ]
-                    > 0
-                ),
-                "error_message": "Concentration of independent component must be provided",
-            },
         ]
 
         errors = {}
