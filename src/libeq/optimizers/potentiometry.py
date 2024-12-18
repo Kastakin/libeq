@@ -219,15 +219,15 @@ def PotentiometryOptimizer(data: SolverData, reporter=None):
         (total_concentration.shape[0], 1),
     )
 
-    _, final_log_beta, *_ = solve_equilibrium_equations(
+    concs, final_log_beta, *_ = solve_equilibrium_equations(
         stoichiometry=stoichiometry,
         solid_stoichiometry=solid_stoichiometry,
-        original_log_beta=original_log_beta,
+        original_log_beta=final_log_beta,
         original_log_ks=original_log_ks,
         total_concentration=total_concentration,
         outer_fiexd_point_params=outer_fixed_point_params,
         initial_guess=concs[:, : stoichiometry.shape[0]],
-        full=False,
+        full=True,
     )
 
     return_extra["total_concentration"] = total_concentration
