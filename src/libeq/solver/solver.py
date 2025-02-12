@@ -119,7 +119,7 @@ def solve_equilibrium_equations(
     full=False,
 ):
     if initial_guess is None:
-        initial_guess = np.full_like(total_concentration, 1e-15)
+        initial_guess = np.full_like(total_concentration, 1e-12)
     else:
         initial_guess = np.atleast_2d(initial_guess)
 
