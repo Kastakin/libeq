@@ -164,7 +164,7 @@ def _update_solids_set(
 
     """
     adjust_solids = True
-    negative_solid_concentration = c[:, point_log_ks.size :] < 0
+    negative_solid_concentration = c[:, -point_log_ks.size :] < 0
     supersaturated_solid = saturation_index > 1 + 1e-9
 
     # any negative solid concentration remove them from the solids set

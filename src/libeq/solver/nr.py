@@ -199,9 +199,9 @@ def newton_raphson(
             np.abs(F) < threshold
         ):
             if solids_to_remove.size != 0:
-                x = np.insert(
-                    x, np.clip(solids_to_remove, a_min=0, a_max=x.shape[1]), 0, axis=1
-                )
+                temp = np.zeros((x.shape[0], n_components + n_solids))
+                temp[:, ~np.isin(range(n_components + n_solids), solids_to_remove)] = x
+                x = temp
             return x
 
         if damping:
